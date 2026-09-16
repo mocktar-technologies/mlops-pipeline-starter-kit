@@ -1,0 +1,37 @@
+# Suppressions for the IaC scan, with a reason and an expiry on every entry.
+#
+# The rule this file follows: a suppression states a decision, it does not hide a
+# finding. Anything here must name what was considered, why the risk is accepted,
+# and the date the decision gets looked at again. An entry with no statement and no
+# expiry is how a scanner quietly stops protecting you.
+#
+# Scoped with `paths` rather than a bare rule ID, so the same rule still fails the
+# build anywhere else in the repository.
+
+misconfigurations:
+  - id: AWS-0104
+    paths:
+      - "terraform-aws-modules/eks/aws/node_groups.tf"
+    expired_at: 2027-03-31
+    statement: >-
+      Unrestricted egress on the managed node group security group, inside the
+      upstream terraform-aws-modules/eks/aws module. The nodes need outbound access
+      to reach the EKS control plane, pull images and talk to the AWS APIs that are
+      not behind an interface endpoint in this VPC. The rule is in third-party
+      module code this repository does not own, so the alternatives are a fork or a
+      suppression. Revisit when the VPC endpoint coverage is complete enough to
+      close node egress entirely.
+
+  - id: AWS-0104
+    paths:
+      - "terraform/modules/sagemaker/main.tf"
+    expired_at: 2027-03-31
+    statement: >-
+      HTTPS egress from SageMaker training jobs. The rule is already narrow in every
+      dimension the scanner does not measure: TCP 443 only, egress only, and the
+      security group accepts nothing inbound. The destination is open because a
+      training job reaches S3, ECR, CloudWatch and the SageMaker control plane, and
+      not all of those are behind an interface endpoint here. Tightening it to the
+      endpoints' security group plus the S3 prefix list is the right fix and is
+      tracked as an issue; until then this is an accepted, documented risk rather
+      than an unnoticed one.
