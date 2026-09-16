@@ -1,0 +1,77 @@
+# Dependency updates.
+#
+# The github-actions ecosystem is the one that matters most here. Every action in
+# this repository is pinned to a commit SHA, which is the right thing to do and
+# which also means nothing updates on its own. Dependabot understands SHA pinning:
+# it raises a pull request that moves the SHA and updates the version comment, so
+# the pin stays a pin and still moves forward.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      # One pull request for the routine action bumps rather than six. The security
+      # tooling is kept separate because those updates are worth reading.
+      actions:
+        patterns: ["*"]
+        exclude-patterns:
+          - "aquasecurity/*"
+          - "anchore/*"
+          - "sigstore/*"
+
+  - package-ecosystem: pip
+    directory: "/requirements"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    # The lock files carry hashes, so Dependabot has to regenerate them rather than
+    # editing a version in place. Review the diff: a changed hash with an unchanged
+    # version is a signal worth understanding, not a rubber stamp.
+    groups:
+      python:
+        patterns: ["*"]
+        exclude-patterns:
+          - "torch"
+          - "onnxruntime"
+          - "onnx"
+          - "onnxscript"
+          - "mlflow"
+    ignore:
+      # Major bumps of these four change the artifact format or the registry API,
+      # so they are a deliberate migration rather than a dependency update.
+      - dependency-name: torch
+        update-types: ["version-update:semver-major"]
+      - dependency-name: onnxruntime
+        update-types: ["version-update:semver-major"]
+      - dependency-name: mlflow
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: terraform
+    directories:
+      - "/terraform/envs/dev"
+      - "/terraform/modules/*"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "infra"
+
+  - package-ecosystem: docker
+    directory: "/docker"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "docker"

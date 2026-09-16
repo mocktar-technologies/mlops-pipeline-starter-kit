@@ -1,0 +1,593 @@
+name: ci-cd-pipeline
+
+# Every action is pinned to a full commit SHA, not a tag. A tag is a movable
+# pointer the action's owner controls: if it moves, your pipeline runs code you
+# never reviewed, with whatever permissions the job has. Several supply-chain
+# incidents have worked exactly that way. The comment after each SHA records which
+# release it was, because a bare SHA tells a reviewer nothing.
+#
+# Renovate and Dependabot both understand this form and will raise pull requests
+# that move the SHA and update the comment. .github/dependabot.yml configures it.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy after a successful build"
+        type: boolean
+        default: false
+
+# Read-only by default at the workflow level, raised per job only where needed. A
+# workflow with write permissions at the top gives every job, including one that
+# only runs a linter, the ability to push to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  # One run per ref. A second push cancels the first, except on main, where
+  # cancelling a half-finished deploy is worse than waiting for it.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+  TOFU_VERSION: "1.12.6"
+  # Pin the helm release you install. Set this to a version you have checked.
+  HELM_VERSION: "v3.19.0"
+
+jobs:
+  # --------------------------------------------------------------------------
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements/dev.txt
+
+      - name: Install tooling
+        run: pip install --require-hashes -r requirements/dev.txt
+
+      - name: Format check
+        run: black --check --diff src tests scripts
+
+      - name: Lint
+        run: ruff check src tests scripts
+
+      - name: Types
+        run: mypy
+
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Terraform format check
+        run: tofu fmt -check -recursive terraform/
+
+      - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
+        with:
+          tflint_version: latest
+
+      - name: tflint
+        run: |
+          tflint --init
+          tflint --recursive --minimum-failure-severity=warning
+
+      - name: Static checks a registry-less runner can still make
+        # These three catch the class of mistake that otherwise appears at apply
+        # time or, worse, at 3 a.m.: a module input that no longer exists, a Helm
+        # value that renders empty, and a metric a dashboard queries that nothing
+        # emits. The third is the important one: an empty panel and a silent alert
+        # both look exactly like a healthy system.
+        run: |
+          python scripts/tf_lint.py
+          python scripts/helm_lint.py
+          python scripts/check_metric_names.py
+
+      - name: Dockerfile lint
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: docker/serving.Dockerfile
+          failure-threshold: warning
+
+      - name: Shell lint
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck scripts/*.sh
+
+  # --------------------------------------------------------------------------
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements/training.txt
+            requirements/dev.txt
+
+      - name: Install
+        # The full training requirements, because the suite includes tests that
+        # train a real model, export it to ONNX, and load the result with the
+        # serving code. Those are the tests that catch a broken export, and a CI
+        # run that skips them to save four minutes is not testing the thing that
+        # actually breaks.
+        run: |
+          pip install --require-hashes -r requirements/training.txt
+          pip install --require-hashes -r requirements/dev.txt
+
+      - name: Run tests
+        run: pytest --cov=src --cov-report=term-missing --cov-report=xml -q
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: coverage
+          path: coverage.xml
+          retention-days: 7
+
+  # --------------------------------------------------------------------------
+  iac-scan:
+    name: iac security scan
+    runs-on: ubuntu-latest
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Required to upload SARIF to the code scanning dashboard.
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Trivy config scan
+        # Trivy's misconfiguration engine is what tfsec became: the tfsec project
+        # states that its Terraform scanning was folded into Trivy and directs its
+        # community there. Using Trivy for both IaC and images also means one
+        # ignore file and one severity policy rather than two.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-config.sarif
+          severity: CRITICAL,HIGH
+          # Report and continue here so the SARIF still uploads. The gate below is
+          # what fails the job.
+          exit-code: "0"
+
+      - uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        if: always()
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
+
+      - name: Fail on high or critical misconfiguration
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: tfsec
+        # Kept because some organisations still require a report by that name. Off
+        # unless ENABLE_TFSEC is set: its last release predates the project's own
+        # migration notice, and the Trivy step above covers the same rule set.
+        if: vars.ENABLE_TFSEC == 'true'
+        uses: aquasecurity/tfsec-action@b466648d6e39e7c75324f25d83891162a721f2d6 # v1.0.3
+        with:
+          working_directory: terraform
+
+  # --------------------------------------------------------------------------
+  terraform-plan:
+    name: terraform plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # For the OIDC token exchange. This is the whole reason no AWS access key
+      # exists anywhere in this repository.
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          # The read-only role. A pull request cannot assume the apply role at all:
+          # its trust policy does not list a pull_request subject.
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: ci-plan-${{ github.run_id }}
+
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Plan
+        id: plan
+        working-directory: terraform/envs/dev
+        run: |
+          set -euo pipefail
+          tofu init -input=false
+          # -detailed-exitcode separates "no changes" (0) from "changes pending"
+          # (2) from "error" (1). Without it a plan that errored and a plan with
+          # nothing to do look the same to the workflow.
+          set +e
+          tofu plan -input=false -no-color -lock=false -detailed-exitcode -out=tfplan > plan.txt 2>&1
+          code=$?
+          set -e
+          echo "exitcode=${code}" >> "$GITHUB_OUTPUT"
+          # The comment API rejects a body over 65536 characters, and a first plan
+          # on this stack is longer than that.
+          tail -c 55000 plan.txt > plan-trimmed.txt
+          if [ "${code}" -eq 1 ]; then
+            cat plan.txt
+            exit 1
+          fi
+
+      - name: Comment the plan
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/envs/dev/plan-trimmed.txt', 'utf8');
+            const code = '${{ steps.plan.outputs.exitcode }}';
+            const heading = code === '0'
+              ? 'No infrastructure changes'
+              : 'Infrastructure changes pending review';
+            const body = [
+              `### ${heading}`,
+              '',
+              'Read the IAM changes first. A widened trust policy or a new `iam:PassRole`',
+              'is the change most worth a second pair of eyes, and it is the easiest to',
+              'miss in a long plan.',
+              '',
+              '<details><summary>Plan output</summary>',
+              '',
+              '```',
+              plan,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+  # --------------------------------------------------------------------------
+  build:
+    name: build and push
+    needs: [lint, test]
+    # Not on a pull request. Pushing an image is a write to a production artifact
+    # store, and the apply role's trust policy refuses a pull_request token anyway;
+    # skipping the job means the failure is a skipped job rather than a confusing
+    # AccessDenied.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-ref: ${{ steps.reference.outputs.ref }}
+      training-image: ${{ steps.reference.outputs.training }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: ci-build-${{ github.run_id }}
+
+      - uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Build and push the serving image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: docker/serving.Dockerfile
+          push: true
+          # sha- prefixed, matching the ECR lifecycle policy's tagPrefixList. A tag
+          # the lifecycle rule does not match is a tag that is never expired.
+          tags: ${{ vars.ECR_INFERENCE_REPO }}:sha-${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            IMAGE_VERSION=0.1.0-${{ github.run_number }}
+          provenance: mode=max
+          cache-from: type=gha,scope=serving
+          cache-to: type=gha,mode=max,scope=serving
+
+      - name: Build and push the training image
+        id: build-training
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: docker/training.Dockerfile
+          push: true
+          tags: ${{ vars.ECR_TRAINING_REPO }}:sha-${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            IMAGE_VERSION=0.1.0-${{ github.run_number }}
+          provenance: mode=max
+          cache-from: type=gha,scope=training
+          cache-to: type=gha,mode=max,scope=training
+
+      - id: reference
+        name: Record the immutable references
+        run: |
+          # Digests, not tags. Everything downstream deploys these strings, so what
+          # was scanned and what runs are provably the same bytes.
+          {
+            echo "ref=${{ vars.ECR_INFERENCE_REPO }}@${{ steps.build.outputs.digest }}"
+            echo "training=${{ vars.ECR_TRAINING_REPO }}@${{ steps.build-training.outputs.digest }}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate an SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ steps.reference.outputs.ref }}
+          format: spdx-json
+          artifact-name: sbom-inference.spdx.json
+          output-file: sbom-inference.spdx.json
+
+      - name: Scan the serving image
+        id: scan
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          image: ${{ steps.reference.outputs.ref }}
+          # High and above. Not medium: a base image carries a long tail of unfixed
+          # medium findings, and a gate that always fails is a gate everyone learns
+          # to override, which is worse than no gate.
+          severity-cutoff: high
+          fail-build: true
+          output-format: sarif
+
+      - uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+        if: always() && steps.scan.outputs.sarif != ''
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: image-scan
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign both images and attest the SBOM
+        env:
+          SERVING_REF: ${{ steps.reference.outputs.ref }}
+          TRAINING_REF: ${{ steps.reference.outputs.training }}
+        run: |
+          set -euo pipefail
+          # Keyless signing. The signature is bound to this workflow's OIDC
+          # identity, so a verifier can require that an image was built by this
+          # repository on this branch, which is a far stronger statement than "an
+          # image with this tag exists in our registry". No private key exists to
+          # be stolen.
+          cosign sign --yes "${SERVING_REF}"
+          cosign sign --yes "${TRAINING_REF}"
+          cosign attest --yes --predicate sbom-inference.spdx.json --type spdxjson "${SERVING_REF}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom
+          path: sbom-inference.spdx.json
+          retention-days: 30
+
+  # --------------------------------------------------------------------------
+  deploy:
+    name: deploy to dev
+    needs: [build]
+    if: github.ref == 'refs/heads/main' || inputs.deploy
+    # A GitHub environment, so protection rules apply. With required reviewers
+    # configured on the environment, the trust policy condition and the reviewer
+    # requirement combine: the job cannot even obtain AWS credentials until a named
+    # human has approved it.
+    environment:
+      name: dev
+    # The cluster API endpoint is private by default, and a GitHub-hosted runner
+    # cannot reach it. Either set RUNNER_LABEL to a self-hosted runner inside the
+    # VPC, or accept a public endpoint narrowed to your runner's egress addresses.
+    # There is no third option, and a workflow that pretends otherwise fails here
+    # with a connection timeout that reads like a cluster outage.
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET }}
+      MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      TRAINING_IMAGE: ${{ needs.build.outputs.training-image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: ci-deploy-${{ github.run_id }}
+
+      - name: Install kubectl and helm
+        run: |
+          set -euo pipefail
+          KUBECTL_VERSION="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
+          curl -fsSLo kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          curl -fsSLo kubectl.sha256 "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
+          # Verify the download. A binary fetched over the network and run with
+          # cluster credentials deserves a checksum check even when the transport
+          # is TLS.
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -m 0755 kubectl /usr/local/bin/kubectl
+          # Pinned and checksum verified, for the same reason kubectl is above.
+          # get-helm-3 is fetched from a moving branch and piped into a shell in a
+          # job that then holds cluster credentials.
+          curl -fsSLo helm.tgz "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          curl -fsSLo helm.tgz.sha256 "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz.sha256sum"
+          sha256sum --check helm.tgz.sha256
+          tar -xzf helm.tgz linux-amd64/helm
+          sudo install -m 0755 linux-amd64/helm /usr/local/bin/helm
+          kubectl version --client
+          helm version
+
+      - name: Configure cluster access
+        run: |
+          set -euo pipefail
+          aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${AWS_REGION}"
+          # Fail here with a clear message rather than letting helm time out in ten
+          # minutes. If this is where the job stops, the runner cannot reach the API
+          # endpoint; see the comment on runs-on above.
+          kubectl version --output=yaml >/dev/null
+          echo "cluster reachable"
+
+      - name: Resolve the champion model version
+        id: model
+        # Resolved inside the cluster, because MLflow is a ClusterIP service that a
+        # runner cannot reach. The training image already contains the registry
+        # client, so no extra image is needed.
+        run: |
+          set -euo pipefail
+          VERSION="$(bash scripts/kube_run.sh mlops-pipelines pipelines "${TRAINING_IMAGE}" \
+            -e "MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}" \
+            -e "ARTIFACT_BUCKET=${ARTIFACT_BUCKET}" \
+            -e "AWS_REGION=${AWS_REGION}" \
+            -- resolve --alias champion | tail -1 | tr -d '\r')"
+          if [ -z "${VERSION}" ]; then
+            echo "no champion alias is set on ${MODEL_NAME}. Run the retrain workflow first." >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "champion is version ${VERSION}"
+
+      - name: Deploy
+        env:
+          MODEL_VERSION: ${{ steps.model.outputs.version }}
+          IMAGE_DIGEST: ${{ needs.build.outputs.image-digest }}
+        run: |
+          set -euo pipefail
+          helm upgrade --install inference deploy/charts/inference \
+            --namespace inference --create-namespace \
+            --values deploy/charts/inference/values-dev.yaml \
+            --set image.repository="${{ vars.ECR_INFERENCE_REPO }}" \
+            --set image.digest="${IMAGE_DIGEST}" \
+            --set image.gitSha="${{ github.sha }}" \
+            --set image.requireDigestPinning=true \
+            --set model.name="${MODEL_NAME}" \
+            --set model.version="${MODEL_VERSION}" \
+            --set model.s3Uri="s3://${ARTIFACT_BUCKET}/models/${MODEL_NAME}/${MODEL_VERSION}/model.onnx" \
+            --set aws.region="${AWS_REGION}" \
+            --set aws.artifactBucket="${ARTIFACT_BUCKET}" \
+            --set mlflow.trackingUri="${MLFLOW_TRACKING_URI}" \
+            --set serviceAccount.roleArn="${{ vars.INFERENCE_ROLE_ARN }}" \
+            --set drift.image="${TRAINING_IMAGE}" \
+            --set drift.serviceAccount.roleArn="${{ vars.DRIFT_ROLE_ARN }}" \
+            --set drift.referenceUri="s3://${ARTIFACT_BUCKET}/datasets/reference/reference_sample.csv" \
+            --set drift.windowUri="s3://${ARTIFACT_BUCKET}/inference/" \
+            --wait --timeout 10m --atomic
+
+      - name: Verify the rollout
+        env:
+          EXPECTED_VERSION: ${{ steps.model.outputs.version }}
+        # Four checks, in order of increasing specificity. The last one is the one
+        # people skip, and it is the one that catches a ServiceMonitor Prometheus is
+        # not honouring: empty panels and silent alerts look exactly like health.
+        run: |
+          set -euo pipefail
+
+          echo "::group::1. rollout completed"
+          kubectl -n inference rollout status deploy/inference-inference --timeout=5m
+          echo "::endgroup::"
+
+          echo "::group::2. the running version is the version we deployed"
+          # curl is in the serving image, so this needs no second image and no
+          # network path off the cluster.
+          kubectl -n inference exec deploy/inference-inference -c inference -- \
+            curl -sf http://127.0.0.1:8080/model > model.json
+          cat model.json
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          info = json.load(open("model.json"))
+          expected = os.environ["EXPECTED_VERSION"]
+          if info.get("loaded") is not True:
+              sys.exit("the pod reports no model loaded")
+          if info.get("model_version") != expected:
+              sys.exit(f"serving {info.get('model_version')!r}, expected {expected!r}")
+          print("version confirmed:", info["model_version"])
+          PY
+          echo "::endgroup::"
+
+          echo "::group::3. it predicts"
+          kubectl -n inference exec deploy/inference-inference -c inference -- \
+            curl -sf -X POST http://127.0.0.1:8080/predict \
+            -H 'content-type: application/json' \
+            -d '{"instances":[{"hour":17,"dayofweek":2,"month":6,"is_holiday":0,"is_workingday":1,"temp_c":21.5,"humidity":0.55,"windspeed":3.2}]}'
+          echo
+          echo "::endgroup::"
+
+          echo "::group::4. prometheus is actually scraping it"
+          kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090:9090 >/dev/null 2>&1 &
+          PF_PID=$!
+          trap 'kill "${PF_PID}" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:9090/-/ready >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf "http://127.0.0.1:9090/api/v1/targets?state=active" > targets.json
+          python3 - <<'PY'
+          import json
+          import sys
+
+          data = json.load(open("targets.json"))
+          active = data.get("data", {}).get("activeTargets", [])
+          ours = [t for t in active if "inference" in t.get("labels", {}).get("job", "")]
+          up = [t for t in ours if t.get("health") == "up"]
+          print(f"{len(up)} of {len(ours)} inference targets up")
+          for target in ours:
+              print(f"  {target['labels'].get('pod', '?')}: {target.get('health')} {target.get('lastError', '')}")
+          if not up:
+              sys.exit(
+                  "no inference target is up. Every model panel and every model alert is "
+                  "now inert, which on a dashboard is indistinguishable from health. Check "
+                  "serviceMonitorSelectorNilUsesHelmValues on the Prometheus resource and "
+                  "the NetworkPolicy ingress from the monitoring namespace."
+              )
+          PY
+          echo "::endgroup::"

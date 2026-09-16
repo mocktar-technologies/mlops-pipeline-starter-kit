@@ -1,0 +1,335 @@
+name: model-retrain-trigger
+
+# Retraining, evaluation and promotion.
+#
+# The shape of this workflow is the whole point, so it is worth stating before the
+# YAML: retraining is automatic, promotion is not.
+#
+# A pipeline that retrains on a schedule and deploys whatever it produced is an
+# automated way to make production worse. Training can succeed technically and
+# still yield a worse model, because the window it trained on was unusual, or an
+# upstream join dropped rows, or a feature went constant. So the train job always
+# runs, always registers its result as a challenger, and never touches the champion
+# alias. A separate job promotes, it runs only when the gate passed, and it sits
+# behind a GitHub environment that can require a named reviewer.
+#
+# Three triggers, each recorded as a tag on the MLflow run so the run list answers
+# "why does this model exist":
+#
+#   schedule            weekly, the baseline
+#   workflow_dispatch   a human decided to retrain
+#   repository_dispatch sent by Alertmanager when ModelDriftCritical has been
+#                       firing for two hours. Opening a retraining run from an
+#                       alert is safe precisely because promotion is still gated.
+
+on:
+  schedule:
+    # 03:00 UTC on Mondays. Early enough that a failure is visible at the start of
+    # the week, late enough that the previous week's data has landed.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you retraining? Recorded on the run."
+        type: string
+        required: true
+      data_uri:
+        description: "Override DATA_URI for this run only"
+        type: string
+        required: false
+      instance_type:
+        description: "SageMaker instance type. Use an ml.g family type to train on a GPU."
+        type: string
+        default: ml.m5.xlarge
+      use_spot:
+        description: "Use managed spot capacity. Cheaper, and the job can be interrupted and restarted."
+        type: boolean
+        default: true
+  repository_dispatch:
+    types: [model-drift-detected]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never two training runs at once. Two runs racing to register a challenger
+  # produce two versions from different data, and the second one's gate compares
+  # against a champion the first may have just changed.
+  group: model-retrain
+  cancel-in-progress: false
+
+jobs:
+  # --------------------------------------------------------------------------
+  train:
+    name: train and evaluate
+    runs-on: ubuntu-latest
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      promote: ${{ steps.gate.outputs.promote }}
+      model-version: ${{ steps.gate.outputs.version }}
+      summary: ${{ steps.gate.outputs.summary }}
+      reference-archive: ${{ steps.job.outputs.output-archive }}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET }}
+      MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+      SAGEMAKER_ROLE_ARN: ${{ vars.SAGEMAKER_ROLE_ARN }}
+      SUBNET_IDS: ${{ vars.PRIVATE_SUBNET_IDS }}
+      SECURITY_GROUP_IDS: ${{ vars.SAGEMAKER_SECURITY_GROUP_ID }}
+      JOB_KMS_KEY_ID: ${{ vars.KMS_KEY_ARN }}
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Work out why this run is happening
+        id: context
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            schedule)            trigger=schedule; reason="weekly scheduled retrain" ;;
+            repository_dispatch) trigger=drift;    reason="${{ github.event.client_payload.reason || 'drift alert' }}" ;;
+            workflow_dispatch)   trigger=manual;   reason="${{ inputs.reason }}" ;;
+            *)                   trigger=manual;   reason="unknown event ${{ github.event_name }}" ;;
+          esac
+          {
+            echo "trigger=${trigger}"
+            echo "reason=${reason}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Retraining: ${trigger}"
+            echo ""
+            echo "Reason: ${reason}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: retrain-${{ github.run_id }}
+
+      - name: Resolve the training image
+        id: image
+        run: |
+          set -euo pipefail
+          # The image built from this commit. A scheduled run uses the default
+          # branch head, which is what you want: retraining should use the pipeline
+          # code that is currently on main, not whatever was on main last week.
+          REF="${{ vars.ECR_TRAINING_REPO }}:sha-${{ github.sha }}"
+          REPO="$(printf '%s' "${{ vars.ECR_TRAINING_REPO }}" | cut -d/ -f2-)"
+          # Fail early with a clear message. Without this the SageMaker job fails
+          # several minutes later with an image pull error that names no cause.
+          if ! aws ecr describe-images --repository-name "${REPO}" \
+              --image-ids "imageTag=sha-${{ github.sha }}" >/dev/null 2>&1; then
+            echo "no training image tagged sha-${{ github.sha }} in ${REPO}." >&2
+            echo "Run ci-cd-pipeline on this commit first: the retrain workflow does not build images." >&2
+            exit 1
+          fi
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Train, evaluate and register a challenger
+        id: job
+        env:
+          # A VPC-attached SageMaker job, because MLflow is a ClusterIP service
+          # inside the VPC and a GitHub-hosted runner cannot reach it. See the
+          # comment at the top of scripts/run_vpc_job.sh.
+          INSTANCE_TYPE: ${{ inputs.instance_type || 'ml.m5.xlarge' }}
+          USE_SPOT: ${{ inputs.use_spot == false && 'false' || 'true' }}
+          MAX_RUNTIME_SECONDS: "7200"
+          DATA_URI: ${{ inputs.data_uri || vars.DATA_URI }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          bash scripts/run_vpc_job.sh "retrain-${{ steps.context.outputs.trigger }}" \
+            "${{ steps.image.outputs.ref }}" \
+            train \
+            --output-dir /opt/ml/model \
+            --trigger "${{ steps.context.outputs.trigger }}" \
+            --run-name "${{ steps.context.outputs.trigger }}-${{ github.run_number }}" \
+            --exit-zero-on-hold
+
+      - name: Read the gate decision
+        id: gate
+        # gate.json is the interface between training and promotion, not the exit
+        # code. --exit-zero-on-hold above means a correctly held model is a
+        # successful job, because paging someone every week for correct behaviour
+        # teaches them to ignore the alert.
+        run: |
+          set -euo pipefail
+          aws s3 cp "${{ steps.job.outputs.output-archive }}" model.tar.gz
+          mkdir -p artifacts
+          tar -xzf model.tar.gz -C artifacts
+          test -f artifacts/gate.json || { echo "the job produced no gate.json" >&2; exit 1; }
+          cat artifacts/gate.json
+
+          PROMOTE="$(python3 -c 'import json;print(str(json.load(open("artifacts/gate.json"))["promote"]).lower())')"
+          VERSION="$(python3 -c 'import json;print(json.load(open("artifacts/gate.json"))["model_version"])')"
+          SUMMARY="$(python3 -c 'import json;print(json.load(open("artifacts/gate.json"))["summary"])')"
+
+          {
+            echo "promote=${PROMOTE}"
+            echo "version=${VERSION}"
+            echo "summary=${SUMMARY}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo ""
+            echo "### Gate decision"
+            echo ""
+            echo "\`\`\`"
+            python3 -c '
+          import json
+          gate = json.load(open("artifacts/gate.json"))
+          for key in ("summary", "metric", "challenger", "champion", "noise_floor",
+                      "required_margin", "observed_improvement", "model_version"):
+              print(f"{key:22} {gate.get(key)}")
+          print()
+          for reason in gate.get("reasons", []):
+              print(f"- {reason}")
+          '
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: gate-decision
+          path: |
+            artifacts/gate.json
+            artifacts/metrics.json
+          retention-days: 90
+
+  # --------------------------------------------------------------------------
+  promote:
+    name: promote to champion
+    needs: [train]
+    if: needs.train.outputs.promote == 'true'
+    # The approval gate. Configure required reviewers on this environment and a
+    # named human has to approve before the job can obtain AWS credentials at all.
+    # Without reviewers configured, this still records who approved what and when.
+    environment:
+      name: production
+    runs-on: ubuntu-latest
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      # To trigger the deploy workflow at the end.
+      actions: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET }}
+      MLFLOW_TRACKING_URI: ${{ vars.MLFLOW_TRACKING_URI }}
+      SAGEMAKER_ROLE_ARN: ${{ vars.SAGEMAKER_ROLE_ARN }}
+      SUBNET_IDS: ${{ vars.PRIVATE_SUBNET_IDS }}
+      SECURITY_GROUP_IDS: ${{ vars.SAGEMAKER_SECURITY_GROUP_ID }}
+      JOB_KMS_KEY_ID: ${{ vars.KMS_KEY_ARN }}
+      MODEL_VERSION: ${{ needs.train.outputs.model-version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: promote-${{ github.run_id }}
+
+      - name: Move the champion alias
+        env:
+          INSTANCE_TYPE: ml.m5.large
+          MAX_RUNTIME_SECONDS: "900"
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # promote records the outgoing version as the `previous` alias before it
+          # moves `champion`, so a rollback is one command and needs no archaeology.
+          bash scripts/run_vpc_job.sh promote \
+            "${{ vars.ECR_TRAINING_REPO }}:sha-${{ github.sha }}" \
+            promote --version "${MODEL_VERSION}"
+
+      - name: Refresh the drift reference sample
+        # The reference the drift exporter compares against has to be the training
+        # distribution of the model that is now serving. Leaving the old reference
+        # in place means the drift numbers describe a model nobody is running, and
+        # they will look wrong in a way that takes an afternoon to understand.
+        #
+        # This runs after promotion, not before: if the gate had held the model
+        # back, the reference must not move.
+        run: |
+          set -euo pipefail
+          aws s3 cp "${{ needs.train.outputs.reference-archive }}" model.tar.gz
+          mkdir -p artifacts
+          tar -xzf model.tar.gz -C artifacts
+          test -f artifacts/reference_sample.csv || {
+            echo "the training job produced no reference_sample.csv" >&2
+            exit 1
+          }
+          # Keep the version-stamped copy as well as the pointer the exporter reads,
+          # so a past drift reading can be reproduced later.
+          aws s3 cp artifacts/reference_sample.csv \
+            "s3://${ARTIFACT_BUCKET}/datasets/reference/history/v${MODEL_VERSION}-reference_sample.csv"
+          aws s3 cp artifacts/reference_sample.csv \
+            "s3://${ARTIFACT_BUCKET}/datasets/reference/reference_sample.csv"
+          echo "reference sample updated for version ${MODEL_VERSION}"
+
+      - name: Record the promotion
+        run: |
+          {
+            echo "### Promoted"
+            echo ""
+            echo "${{ vars.MODEL_NAME }} version ${MODEL_VERSION} is now the champion."
+            echo ""
+            echo "${{ needs.train.outputs.summary }}"
+            echo ""
+            echo "The registry now points at the new version. Nothing is serving it"
+            echo "yet: the running pods still hold the previous artifact until the"
+            echo "deploy workflow rolls them. That separation is deliberate, so a"
+            echo "registry change and a traffic change are two reviewable events."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Trigger the deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Deploying is a separate workflow run with its own environment approval,
+          # rather than a step here. That keeps "the registry changed" and "traffic
+          # moved" as two events you can approve, audit and roll back separately.
+          gh workflow run ci-cd-pipeline.yml \
+            --repo "${{ github.repository }}" \
+            --ref "${{ github.ref_name }}" \
+            --field deploy=true
+          echo "deploy workflow requested"
+
+  # --------------------------------------------------------------------------
+  report-hold:
+    name: report a held model
+    needs: [train]
+    if: needs.train.outputs.promote != 'true'
+    runs-on: ubuntu-latest
+    # A hung job otherwise runs to the 6 hour default and holds a runner.
+    timeout-minutes: 10
+    steps:
+      - name: Explain what happened
+        # A held model is the system working. It gets a clear summary and no alert,
+        # because a weekly notification that says "nothing changed, correctly" is
+        # how a team learns to stop reading notifications.
+        run: |
+          {
+            echo "### Held: not promoted"
+            echo ""
+            echo "${{ needs.train.outputs.summary }}"
+            echo ""
+            echo "This is the gate doing its job, not a failure. The challenger was"
+            echo "registered and is available in the registry under the challenger"
+            echo "alias, so you can inspect it. The champion is unchanged and"
+            echo "production is untouched."
+            echo ""
+            echo "Worth checking before overriding: was the improvement inside the"
+            echo "noise floor, or was the model genuinely worse? The gate decision"
+            echo "artifact on the train job records both numbers."
+          } >> "$GITHUB_STEP_SUMMARY"
