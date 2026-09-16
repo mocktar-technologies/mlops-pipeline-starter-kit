@@ -202,7 +202,7 @@ jobs:
   # --------------------------------------------------------------------------
   terraform-plan:
     name: terraform plan
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != ''
     runs-on: ubuntu-latest
     # A hung job otherwise runs to the 6 hour default and holds a runner.
     timeout-minutes: 20
@@ -290,7 +290,7 @@ jobs:
     # store, and the apply role's trust policy refuses a pull_request token anyway;
     # skipping the job means the failure is a skipped job rather than a confusing
     # AccessDenied.
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && vars.AWS_APPLY_ROLE_ARN != ''
     runs-on: ubuntu-latest
     # A hung job otherwise runs to the 6 hour default and holds a runner.
     timeout-minutes: 45
@@ -410,7 +410,7 @@ jobs:
   deploy:
     name: deploy to dev
     needs: [build]
-    if: github.ref == 'refs/heads/main' || inputs.deploy
+    if: (github.ref == 'refs/heads/main' || inputs.deploy) && vars.AWS_APPLY_ROLE_ARN != ''
     # A GitHub environment, so protection rules apply. With required reviewers
     # configured on the environment, the trust policy condition and the reviewer
     # requirement combine: the job cannot even obtain AWS credentials until a named
