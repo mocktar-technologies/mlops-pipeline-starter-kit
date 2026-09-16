@@ -1,0 +1,102 @@
+# Tooling configuration only. Dependencies are pinned with hashes in
+# requirements/*.txt rather than declared here, because the container build needs
+# --require-hashes and a pyproject dependency list cannot express hashes.
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # import ordering
+    "B",    # bugbear, catches mutable defaults and except-pass
+    "UP",   # pyupgrade
+    "S",    # bandit security rules
+    "ASYNC",
+    "C4",
+    "T20",  # no stray print() outside the CLI
+    "RUF",
+]
+ignore = [
+    # Line length is black's job; ruff flagging it as well produces two
+    # conflicting opinions on the same line.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The CLI is allowed to print: its output is consumed by the workflow.
+"src/pipelines/cli.py" = ["T20"]
+# The scripts in scripts/ are command line tools. Their stdout is the interface a
+# Makefile target and a workflow step read, so print is correct there, not a lapse.
+"scripts/**" = ["T20"]
+# assert is how pytest expresses every check, and test fixtures bind to
+# localhost on purpose.
+"tests/**" = ["S101", "S104", "S311"]
+# Binding to 0.0.0.0 inside a container is the correct behaviour, not a finding:
+# a process bound to 127.0.0.1 is unreachable from the kubelet's probe.
+"src/serving/config.py" = ["S104"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["contract", "pipelines", "serving"]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "requires_torch: needs the training image dependencies, skipped in the serving test run",
+]
+filterwarnings = [
+    # A DeprecationWarning from a dependency is a change you want to act on
+    # before the next upgrade forces you to, so the suite fails on new ones.
+    "error::DeprecationWarning:serving.*",
+    "error::DeprecationWarning:pipelines.*",
+    "default",
+]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+packages = ["contract", "serving", "pipelines"]
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+# Third-party packages without shipped type information. Listing them keeps
+# --strict-optional useful instead of drowning the run in import errors.
+[[tool.mypy.overrides]]
+module = [
+    "onnxruntime.*",
+    "mlflow.*",
+    "onnx.*",
+    "torch.*",
+    "boto3.*",
+    "prometheus_client.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+# The drift exporter's __main__ block and the uvicorn launch cannot run inside a
+# unit test, and pretending otherwise with a mock proves nothing.
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

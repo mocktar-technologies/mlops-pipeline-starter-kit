@@ -1,0 +1,63 @@
+# Everything that does not belong in a build context.
+#
+# This file is a security control as much as a performance one. A build context
+# that includes .env or .terraform sends those bytes to the daemon, where a
+# careless COPY . can bake them into a layer that is then pushed to a registry.
+# A secret in an image layer is not removed by deleting it in a later layer.
+
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials
+kubeconfig
+
+# Terraform: state can contain resource attributes, and .terraform holds hundreds
+# of megabytes of provider binaries that would be uploaded on every build.
+terraform/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Version control and CI
+.git/
+.github/
+.gitignore
+
+# Python local state
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Model artifacts and data. The image gets its model at run time from S3, never at
+# build time: an image with a model baked in has to be rebuilt to change the model,
+# which couples the two lifecycles that MLOps exists to separate.
+artifacts/
+data/
+mlruns/
+mlartifacts/
+*.onnx
+*.pt
+*.pkl
+
+# Documentation and deployment manifests are not needed by any build stage.
+docs/
+deploy/
+monitoring/
+*.md
+LICENSE
+
+# Editors
+.idea/
+.vscode/
+.DS_Store
