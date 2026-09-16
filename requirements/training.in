@@ -1,0 +1,25 @@
+# Dependencies for the training and drift containers.
+#
+# Includes everything in serving.in because the pipeline runs the same ONNX
+# parity check the serving container will run, plus PyTorch, MLflow and the data
+# stack. This image is large and that is fine: it runs on a node group that
+# scales to zero, not on the request path.
+
+-c serving.txt
+
+torch==2.10.0
+onnx==1.20.0
+# torch.onnx.export uses the dynamo exporter by default from torch 2.6 onward,
+# and that path imports onnxscript. Without it the export raises ModuleNotFoundError
+# at the end of a training run, which is the most expensive possible place to
+# discover a missing dependency.
+onnxscript==0.7.2
+mlflow==3.16.0
+psycopg2-binary==2.9.12
+pandas==3.0.5
+pyarrow==22.0.0
+boto3==1.43.93
+PyYAML==6.0.3
+onnxruntime==1.30.0
+numpy==2.5.3
+prometheus-client==0.26.0

@@ -1,0 +1,61 @@
+# Training configuration.
+#
+# Everything here is part of the experiment and is therefore committed to git, so
+# a model version can be traced back to a commit plus this file. Anything that
+# differs per environment (bucket names, tracking URI, the dataset location) is
+# read from the environment instead and is not in this file. See .env.example.
+
+model_name: demand-forecast
+
+data:
+  # Overridden by DATA_URI when it is set, which is how the same committed config
+  # runs against a sample file locally and the real dataset in the cluster.
+  # Accepts a local path or an s3:// URI.
+  uri: data/sample.csv
+  # Chronological, never shuffled. The remaining 0.15 is the test split the
+  # promotion gate scores on and nothing else touches.
+  train_fraction: 0.70
+  validation_fraction: 0.15
+  # A dataset shorter than this fails the run. A short dataset is nearly always a
+  # truncated upstream export rather than a genuinely small one.
+  min_rows: 2000
+
+model:
+  hidden_sizes: [64, 32]
+  dropout: 0.10
+  # Poisson negative log likelihood on a log link. The graph exponentiates, so a
+  # negative prediction is structurally impossible. Changing this means revisiting
+  # the serving contract in src/serving/model.py.
+  loss: poisson_nll
+
+training:
+  epochs: 60
+  batch_size: 256
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  early_stopping_patience: 8
+  seed: 1337
+
+gate:
+  metric: mae
+  # Bootstrap resamples used to estimate how much the metric moves for reasons
+  # unrelated to the model. The challenger must beat the champion by more than
+  # noise_multiplier times that spread.
+  bootstrap_samples: 400
+  noise_multiplier: 2.0
+  # And by at least this many bikes of mean absolute error, so a very stable
+  # metric does not let a rounding-level difference through.
+  min_absolute_improvement: 0.5
+  # An absolute ceiling, which is what protects the very first run: without it a
+  # broken first model becomes the baseline every later run is measured against.
+  max_acceptable_mae: 120.0
+
+drift:
+  # The conventional reading of the population stability index: below 0.10 no
+  # meaningful change, 0.10 to 0.25 worth investigating, above 0.25 a material
+  # shift. A heuristic, not a statistical test. See docs/RUNBOOK.md.
+  warn_threshold: 0.10
+  alert_threshold: 0.25
+  bins: 10
+  interval_seconds: 900
+  window_rows: 20000
