@@ -182,6 +182,13 @@ jobs:
         # states that its Terraform scanning was folded into Trivy and directs its
         # community there. Using Trivy for both IaC and images also means one
         # ignore file and one severity policy rather than two.
+        env:
+          # Trivy renders Helm charts at Kubernetes v1.20.0 unless told otherwise,
+          # and this chart declares kubeVersion ">=1.31.0-0". The render then fails,
+          # the chart is silently not scanned, and the job still reports success: a
+          # security check that covers nothing while looking healthy. 1.35.0 is the
+          # version terraform/envs/dev/variables.tf provisions.
+          TRIVY_HELM_KUBE_VERSION: "1.35.0"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
@@ -206,6 +213,10 @@ jobs:
           category: trivy-config
 
       - name: Fail on high or critical misconfiguration
+        # Same Kubernetes version as the step above. If the two disagree, the gate
+        # examines a different set of files than the report you are reading.
+        env:
+          TRIVY_HELM_KUBE_VERSION: "1.35.0"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
