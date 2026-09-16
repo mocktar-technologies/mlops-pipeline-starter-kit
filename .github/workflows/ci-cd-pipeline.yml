@@ -184,15 +184,23 @@ jobs:
         # ignore file and one severity policy rather than two.
         env:
           # Trivy renders Helm charts at Kubernetes v1.20.0 unless told otherwise,
-          # and this chart declares kubeVersion ">=1.31.0-0". The render then fails,
-          # the chart is silently not scanned, and the job still reports success: a
-          # security check that covers nothing while looking healthy. 1.35.0 is the
-          # version terraform/envs/dev/variables.tf provisions.
+          # and this chart declares kubeVersion ">=1.31.0-0". Without this the
+          # render fails, the chart is silently not scanned, and the job still
+          # reports success. 1.35.0 is the version terraform/envs/dev/variables.tf
+          # provisions.
           TRIVY_HELM_KUBE_VERSION: "1.35.0"
+          # The chart refuses to render without the nine values that must come from
+          # a terraform output or the pipeline, which is deliberate: an install with
+          # an empty IRSA role ARN is worse than a failed one. These are the same
+          # placeholders the helm-lint target uses, so the scanner sees the same
+          # manifests a real install produces.
+          TRIVY_HELM_VALUES: deploy/charts/inference/values-dev.yaml
+          TRIVY_HELM_SET: 'image.repository=example,model.version=0,model.s3Uri=s3://example/model.onnx,serviceAccount.roleArn=arn:aws:iam::000000000000:role/example,drift.image=example,drift.serviceAccount.roleArn=arn:aws:iam::000000000000:role/example,drift.referenceUri=s3://example/ref.csv,drift.windowUri=s3://example/window/,aws.artifactBucket=example'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: .
+          trivyignores: .trivyignore.yaml
           format: sarif
           output: trivy-config.sarif
           severity: CRITICAL,HIGH
@@ -213,14 +221,18 @@ jobs:
           category: trivy-config
 
       - name: Fail on high or critical misconfiguration
-        # Same Kubernetes version as the step above. If the two disagree, the gate
-        # examines a different set of files than the report you are reading.
+        # The same Kubernetes version and the same values as the step above. If the
+        # two disagree, the gate examines a different set of files than the report
+        # you are reading.
         env:
           TRIVY_HELM_KUBE_VERSION: "1.35.0"
+          TRIVY_HELM_VALUES: deploy/charts/inference/values-dev.yaml
+          TRIVY_HELM_SET: 'image.repository=example,model.version=0,model.s3Uri=s3://example/model.onnx,serviceAccount.roleArn=arn:aws:iam::000000000000:role/example,drift.image=example,drift.serviceAccount.roleArn=arn:aws:iam::000000000000:role/example,drift.referenceUri=s3://example/ref.csv,drift.windowUri=s3://example/window/,aws.artifactBucket=example'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: .
+          trivyignores: .trivyignore.yaml
           format: table
           severity: CRITICAL,HIGH
           exit-code: "1"
