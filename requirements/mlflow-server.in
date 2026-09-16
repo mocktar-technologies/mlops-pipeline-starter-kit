@@ -8,7 +8,7 @@
 -c serving.txt
 
 mlflow==3.16.0
-psycopg2-binary==2.9.12
+psycopg2-binary==2.9.13
 # The server's own process manager. mlflow server shells out to gunicorn, and it
 # is not a hard dependency of the mlflow package, so an image without it starts
 # and then fails on the first request with a command-not-found.
