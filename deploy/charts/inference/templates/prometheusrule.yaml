@@ -1,0 +1,271 @@
+{{- if .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "inference.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- with .Values.metrics.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    # ----------------------------------------------------------------------
+    # Recording rules.
+    #
+    # Every alert below queries one of these rather than repeating the raw
+    # expression. That is not only about repetition: an alert and a dashboard panel
+    # that compute the same quantity in two slightly different ways is how you end
+    # up arguing about whether the graph or the alert is right during an incident.
+    # ----------------------------------------------------------------------
+    - name: {{ include "inference.fullname" . }}.recording
+      interval: 30s
+      rules:
+        - record: inference:request_rate:5m
+          expr: |
+            sum by (namespace, service, model_version) (
+              rate(inference_requests_total{job=~".*inference.*"}[5m])
+            )
+
+        - record: inference:error_rate:5m
+          expr: |
+            sum by (namespace, service, model_version) (
+              rate(inference_requests_total{job=~".*inference.*", status="5xx"}[5m])
+            )
+
+        # The ratio, computed once. `or vector(0)` keeps the series present when
+        # there is no traffic at all: without it the expression returns nothing,
+        # the alert cannot evaluate, and a service receiving zero requests looks
+        # identical to a service that is fine.
+        - record: inference:error_ratio:5m
+          expr: |
+            (
+              inference:error_rate:5m
+              /
+              clamp_min(inference:request_rate:5m, 1e-9)
+            ) or vector(0)
+
+        - record: inference:latency_p99:5m
+          expr: |
+            histogram_quantile(0.99,
+              sum by (namespace, service, model_version, le) (
+                rate(inference_request_duration_seconds_bucket{job=~".*inference.*"}[5m])
+              )
+            )
+
+        - record: inference:model_latency_p99:5m
+          expr: |
+            histogram_quantile(0.99,
+              sum by (namespace, service, model_version, le) (
+                rate(inference_model_latency_seconds_bucket{job=~".*inference.*"}[5m])
+              )
+            )
+
+        # The mean prediction, derived from the histogram's sum and count. This is
+        # the cheapest early warning of a model that has started behaving
+        # differently: it moves before accuracy can be measured, because accuracy
+        # needs labels that arrive hours or days later.
+        - record: inference:mean_prediction:30m
+          expr: |
+            sum by (namespace, service, model_version) (
+              rate(inference_prediction_sum{job=~".*inference.*"}[30m])
+            )
+            /
+            clamp_min(
+              sum by (namespace, service, model_version) (
+                rate(inference_prediction_count{job=~".*inference.*"}[30m])
+              ),
+              1e-9
+            )
+
+        - record: inference:rejection_ratio:5m
+          expr: |
+            (
+              sum by (namespace, reason) (rate(inference_input_rejected_total[5m]))
+              /
+              clamp_min(sum by (namespace) (inference:request_rate:5m), 1e-9)
+            ) or vector(0)
+
+    # ----------------------------------------------------------------------
+    # Application and model alerts.
+    #
+    # Severity is used honestly: critical means a human is woken, warning means it
+    # waits for working hours. Marking everything critical is the fastest way to
+    # teach a team that the alert channel can be ignored.
+    # ----------------------------------------------------------------------
+    - name: {{ include "inference.fullname" . }}.alerts
+      rules:
+        - alert: InferenceModelNotLoaded
+          expr: inference_model_loaded == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: model
+          annotations:
+            summary: "No model loaded in {{ `{{ $labels.pod }}` }}"
+            description: >-
+              The pod is serving HTTP but has no model, so every inference request
+              returns 503. The readiness probe should already have removed it from
+              the Service; if traffic is still arriving, the probe is misconfigured.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#inferencemodelnotloaded"
+
+        - alert: InferenceHighErrorRate
+          expr: inference:error_ratio:5m > {{ .Values.alerts.errorRatioThreshold }}
+          for: 5m
+          labels:
+            severity: critical
+            component: application
+          annotations:
+            summary: "{{ `{{ $value | humanizePercentage }}` }} of inference requests are failing"
+            description: >-
+              Server-side errors over the last five minutes exceed
+              {{ .Values.alerts.errorRatioThreshold }}. Check the pod logs before
+              rolling back: a 5xx spike that started at a deploy is a code or model
+              problem, and one that started without a deploy is usually a dependency.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#inferencehigherrorrate"
+
+        - alert: InferenceLatencyHigh
+          expr: inference:latency_p99:5m > {{ .Values.alerts.latencyP99Seconds }}
+          for: 10m
+          labels:
+            severity: warning
+            component: application
+          annotations:
+            summary: "p99 inference latency is {{ `{{ $value | humanizeDuration }}` }}"
+            description: >-
+              Compare inference:latency_p99:5m with inference:model_latency_p99:5m.
+              If model latency is flat, the time is being spent outside the model,
+              which usually means CPU throttling or a larger batch size rather than
+              a slower model.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#inferencelatencyhigh"
+
+        # This one has no business firing, which is exactly why it is critical. The
+        # exported graph ends in exp(), so a negative prediction is impossible. A
+        # clamp means the loaded artifact is not the model this service was written
+        # for, and predictions may have been wrong before the clamp caught them.
+        - alert: InferencePredictionClamped
+          expr: increase(inference_prediction_clamped_total[15m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: model
+          annotations:
+            summary: "Predictions are being clamped at the {{ `{{ $labels.bound }}` }} bound"
+            description: >-
+              The serving boundary clamped at least one prediction. The exported
+              model cannot produce a value outside the bounds, so the artifact in
+              this pod is not the one the pipeline produced. Check the model version
+              annotation on the Deployment against the champion alias in MLflow.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#inferencepredictionclamped"
+
+        - alert: InferenceInputRejectionSpike
+          expr: inference:rejection_ratio:5m > {{ .Values.alerts.rejectionRatioThreshold }}
+          for: 10m
+          labels:
+            severity: warning
+            component: data
+          annotations:
+            summary: "{{ `{{ $value | humanizePercentage }}` }} of requests rejected, reason {{ `{{ $labels.reason }}` }}"
+            description: >-
+              A rise in schema rejections is the earliest signal that an upstream
+              producer has changed its output. reason=batch_too_large is a client
+              behaviour change instead, and needs a conversation rather than a fix.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#inferenceinputrejectionspike"
+
+        # The scenario that infrastructure monitoring cannot see: pods healthy,
+        # latency normal, error rate zero, and the model quietly predicting
+        # something different from yesterday.
+        - alert: InferencePredictionDistributionShift
+          expr: |
+            abs(
+              inference:mean_prediction:30m
+              -
+              inference:mean_prediction:30m offset 1d
+            )
+            /
+            clamp_min(inference:mean_prediction:30m offset 1d, 1e-9)
+            > {{ .Values.alerts.predictionShiftRatio }}
+          for: 30m
+          labels:
+            severity: warning
+            component: model
+          annotations:
+            summary: "Mean prediction moved {{ `{{ $value | humanizePercentage }}` }} against the same window yesterday"
+            description: >-
+              Every infrastructure and application signal can be green while this
+              fires. Check whether a deploy changed the model version; if not, look
+              at model_drift_psi to see whether the inputs moved.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#inferencepredictiondistributionshift"
+
+    # ----------------------------------------------------------------------
+    # Drift and monitor health.
+    #
+    # The second group here is the one people forget. A drift gauge stuck at a
+    # healthy value because the exporter has been failing for three days looks
+    # exactly like a healthy system, so the monitor's own liveness is alerted on.
+    # ----------------------------------------------------------------------
+    {{- if .Values.drift.enabled }}
+    - name: {{ include "inference.fullname" . }}.drift
+      rules:
+        - alert: ModelDriftWarning
+          expr: model_drift_psi_max > on() group_left model_drift_threshold{level="warn"}
+          for: 1h
+          labels:
+            severity: warning
+            component: data
+          annotations:
+            summary: "Input drift above the warning threshold"
+            description: >-
+              The population stability index for at least one feature has been above
+              the warning threshold for an hour. Look at model_drift_psi by feature
+              to see which one moved. This is not yet a reason to retrain.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#modeldriftwarning"
+
+        - alert: ModelDriftCritical
+          expr: model_drift_psi_max > on() group_left model_drift_threshold{level="alert"}
+          for: 2h
+          labels:
+            severity: warning
+            component: data
+          annotations:
+            summary: "Material input drift sustained for two hours"
+            description: >-
+              A feature distribution has moved materially and stayed moved. If the
+              retrain webhook is enabled this alert opens a retraining run; the
+              promotion gate still decides whether the result ships. Drift is not a
+              page: it needs a decision within a working day.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#modeldriftcritical"
+
+        - alert: DriftMonitorStale
+          expr: |
+            time() - model_drift_last_success_timestamp_seconds
+            > {{ .Values.alerts.driftStalenessSeconds }}
+          for: 10m
+          labels:
+            severity: warning
+            component: monitoring
+          annotations:
+            summary: "Drift has not been computed successfully for {{ `{{ $value | humanizeDuration }}` }}"
+            description: >-
+              The drift gauges are holding their last value, which reads as healthy.
+              Until this clears, treat every drift panel as unknown rather than as
+              green. Check the exporter logs and its S3 access.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#driftmonitorstale"
+
+        - alert: DriftMonitorFailing
+          expr: increase(model_drift_failures_total[30m]) > 2
+          for: 5m
+          labels:
+            severity: warning
+            component: monitoring
+          annotations:
+            summary: "Drift computation failing, reason {{ `{{ $labels.reason }}` }}"
+            description: >-
+              reason=missing_data usually means the capture prefix is empty, which
+              is itself worth investigating: it means the serving pods are not
+              writing inputs. reason=window_too_small means traffic is too low for a
+              stable index.
+            runbook_url: "{{ .Values.alerts.runbookBaseUrl }}#driftmonitorfailing"
+    {{- end }}
+{{- end }}

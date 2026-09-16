@@ -1,0 +1,45 @@
+{{- if .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "inference.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "inference.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # Utilisation is measured against the CPU *request*, not the limit. With
+          # a 500m request and a 70 percent target, the HPA adds a replica at 350m
+          # of actual use. That leaves headroom for the burst a scale-up takes to
+          # satisfy, which a 90 percent target does not.
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleUp:
+      # Short window, because an inference pod that is saturated is already adding
+      # latency and waiting five minutes to confirm it makes the incident longer.
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+    scaleDown:
+      # Long window, because scaling down into a traffic pattern that is about to
+      # come back produces a cycle of removing and adding capacity, and every
+      # added pod pays the model-download cost again.
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 180
+{{- end }}

@@ -1,0 +1,248 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "inference.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+  annotations:
+    # Recorded so `kubectl describe deployment` answers "which model is this" without
+    # a trip to the registry.
+    mlops.platform/model-name: {{ .Values.model.name | quote }}
+    mlops.platform/model-version: {{ include "inference.modelVersion" . }}
+    mlops.platform/model-uri: {{ .Values.model.s3Uri | quote }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "inference.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # maxUnavailable 0 is the important half. With the default of 25 percent, a
+      # rollout removes a quarter of your capacity before the replacement is ready,
+      # and on a three-replica service under load that is a visible latency event
+      # on every deploy.
+      maxUnavailable: 0
+      maxSurge: {{ .Values.rollout.maxSurge }}
+  template:
+    metadata:
+      labels:
+        {{- include "inference.labels" . | nindent 8 }}
+        # On the pod, not only on the Deployment, because kube-state-metrics
+        # exposes pod labels and this is what lets a dashboard split request rate
+        # by model version during a canary.
+        model_version: {{ .Values.model.version | quote }}
+      annotations:
+        # Rolls the pods when the rendered configuration changes. Without it, a
+        # values change that only touches the ConfigMap leaves every pod running
+        # the previous configuration until something unrelated restarts them.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+
+      # A pod that has to pull the model before it can serve needs longer than the
+      # default 30 seconds to shut down cleanly under load, and uvicorn drains
+      # in-flight requests during this window.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+
+      # Spread replicas across zones, and prefer different nodes. Without this,
+      # the scheduler is free to place every replica on one node, and the
+      # PodDisruptionBudget then blocks that node from ever being drained.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "inference.selectorLabels" . | nindent 14 }}
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "inference.selectorLabels" . | nindent 14 }}
+
+      volumes:
+        - name: model
+          emptyDir:
+            sizeLimit: {{ .Values.model.volumeSizeLimit }}
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+
+      initContainers:
+        # Fetching the model here rather than in the application has three
+        # consequences worth the extra container:
+        #   the readiness probe means "a model is loaded", not "the process started"
+        #   a bad model URI is a clear init failure, not a confusing 503 loop
+        #   the serving container needs no AWS CLI and no S3 code path
+        - name: fetch-model
+          image: {{ .Values.modelFetcher.image | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              echo "fetching ${MODEL_S3_URI}"
+              aws s3 cp "${MODEL_S3_URI}" /model/model.onnx
+              # Refuse an empty or truncated download. Without this check a partial
+              # object becomes a pod that starts, fails to parse the graph, and
+              # crash-loops with an ONNX Runtime error that says nothing about S3.
+              SIZE=$(wc -c < /model/model.onnx)
+              if [ "${SIZE}" -lt 1024 ]; then
+                echo "model is only ${SIZE} bytes, which is not a valid ONNX graph" >&2
+                exit 1
+              fi
+              echo "fetched ${SIZE} bytes"
+          env:
+            - name: MODEL_S3_URI
+              value: {{ required "model.s3Uri is required" .Values.model.s3Uri | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.aws.region | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.aws.region | quote }}
+            # The SDK prefers the regional STS endpoint, which keeps the token
+            # exchange inside the VPC when an STS interface endpoint exists.
+            - name: AWS_STS_REGIONAL_ENDPOINTS
+              value: regional
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: model
+              mountPath: /model
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+
+      containers:
+        - name: inference
+          image: {{ include "inference.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: {{ include "inference.fullname" . }}-config
+
+          env:
+            - name: MODEL_PATH
+              value: /model/model.onnx
+            # Downward API rather than a literal, so the value cannot drift from
+            # the label the metrics are joined on.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+          # Three probes, each answering a different question.
+          #
+          # startup: is the model loaded yet. It gives the process up to
+          #   failureThreshold * periodSeconds to come up, and while it is running
+          #   the liveness probe is suspended. Without it, a slow model load looks
+          #   like a liveness failure and the pod is killed while it is working.
+          # liveness: can the process still serve HTTP. It deliberately does not
+          #   check the model: restarting a pod whose model is missing loses the
+          #   evidence and achieves nothing.
+          # readiness: should this pod receive traffic. This is the one that
+          #   depends on the model.
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 3
+            failureThreshold: {{ .Values.probes.startupFailureThreshold }}
+            timeoutSeconds: 3
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 4
+
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          lifecycle:
+            preStop:
+              # The endpoint removal that takes this pod out of the Service is
+              # eventually consistent across every kube-proxy in the cluster. A
+              # short sleep before the process gets SIGTERM means in-flight
+              # requests are not sent to a socket that is already closing, which is
+              # the usual source of a handful of 502s on every deploy.
+              exec:
+                command: ["/bin/sh", "-c", "sleep {{ .Values.rollout.preStopSleepSeconds }}"]
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: model
+              mountPath: /model
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu | quote }}
+              memory: {{ .Values.resources.requests.memory | quote }}
+            limits:
+              # Memory has a limit and CPU does not. A CPU limit on an inference
+              # pod produces cgroup throttling that shows up as tail latency with
+              # no matching rise in request rate, and it is one of the hardest
+              # things to diagnose from a dashboard. The request plus the HPA is
+              # what bounds consumption. If your organisation requires a CPU limit,
+              # set resources.limits.cpu and raise SERVING_INTRA_OP_THREADS to
+              # match it, never above it.
+              memory: {{ .Values.resources.limits.memory | quote }}
+              {{- with .Values.resources.limits.cpu }}
+              cpu: {{ . | quote }}
+              {{- end }}

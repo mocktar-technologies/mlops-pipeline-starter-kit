@@ -1,0 +1,24 @@
+apiVersion: v2
+name: inference
+description: >-
+  Online inference for the demand-forecast model, plus the drift exporter that
+  compares production inputs against the training reference.
+type: application
+
+# The chart version and the application version are separate on purpose. The chart
+# version changes when these templates change; appVersion tracks the container
+# image. Bumping one because the other changed is how a rollback ends up applying
+# the wrong template set.
+version: 0.1.0
+appVersion: "0.1.0"
+
+kubeVersion: ">=1.31.0-0"
+
+maintainers:
+  - name: Platform Engineering
+
+annotations:
+  # Read by Prometheus Operator users as a reminder: this chart creates
+  # ServiceMonitor and PrometheusRule objects, so the operator CRDs must already
+  # exist. They are installed by the observability terraform module.
+  requires: prometheus-operator-crds

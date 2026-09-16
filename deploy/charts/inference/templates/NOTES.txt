@@ -1,0 +1,58 @@
+{{ include "inference.fullname" . }} installed into namespace {{ .Release.Namespace }}.
+
+Model:   {{ .Values.model.name }} version {{ .Values.model.version }}
+Image:   {{ include "inference.image" . }}
+Source:  {{ .Values.model.s3Uri }}
+
+Verify the rollout in this order. Each step answers a different question, and
+skipping to the last one is how a broken deploy looks fine.
+
+1. Did the pods come up with a model?
+
+     kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "inference.fullname" . }} --timeout=5m
+
+   If the rollout stalls, look at the init container first. A failure there is a
+   model URI or an IAM problem, not an application problem:
+
+     kubectl -n {{ .Release.Namespace }} logs -l app.kubernetes.io/name={{ include "inference.name" . }} -c fetch-model --tail=50
+
+2. Is the version that is running the version you meant to deploy?
+
+     kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "inference.fullname" . }} 8080:{{ .Values.service.port }} &
+     curl -s localhost:8080/model | python3 -m json.tool
+
+   Check model_version against the champion alias in MLflow. They disagreeing is
+   the most common cause of a confusing dashboard.
+
+3. Does it actually predict?
+
+     curl -s localhost:8080/predict \
+       -H 'content-type: application/json' \
+       -d '{"instances":[{"hour":17,"dayofweek":2,"month":6,"is_holiday":0,"is_workingday":1,"temp_c":21.5,"humidity":0.55,"windspeed":3.2}]}'
+
+4. Is Prometheus actually scraping it? This is the step that gets skipped, and a
+   ServiceMonitor that is not being honoured looks exactly like a healthy system:
+   empty panels and alerts that never fire because their queries return no series.
+
+     kubectl -n {{ .Values.networkPolicy.monitoringNamespace }} port-forward svc/kube-prometheus-stack-prometheus 9090:9090 &
+
+   Then open http://localhost:9090/targets and confirm a target named
+   {{ .Release.Namespace }}/{{ include "inference.fullname" . }} is UP. If it is
+   absent, check serviceMonitorSelectorNilUsesHelmValues on the Prometheus
+   resource; if it is DOWN, check the NetworkPolicy allows ingress from the
+   monitoring namespace.
+
+{{- if not .Values.image.digest }}
+
+NOTE: this release is pinned to the tag {{ .Values.image.tag }} rather than to a
+digest, so the pod that restarts tonight may not run the code you just tested.
+Set image.digest for staging and production, and set
+image.requireDigestPinning=true so an unpinned install fails instead of
+succeeding quietly.
+{{- end }}
+{{- if not .Values.drift.enabled }}
+
+NOTE: the drift exporter is disabled, so model_drift_psi is not being produced and
+the drift panels on the dashboard will be empty. Infrastructure and application
+monitoring will not tell you that the inputs have changed.
+{{- end }}

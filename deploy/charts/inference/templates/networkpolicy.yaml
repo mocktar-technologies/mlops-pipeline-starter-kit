@@ -1,0 +1,149 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default deny first. Without it every other policy in this namespace is additive
+# to an implicit allow-all, and the explicit rules below give a false impression of
+# control.
+#
+# This requires a CNI that enforces NetworkPolicy. The Amazon VPC CNI does so only
+# when network policy enforcement is enabled on the add-on; without that, these
+# objects are accepted by the API server, appear in kubectl get netpol, and enforce
+# nothing. Check before relying on them:
+#   kubectl -n kube-system get ds aws-node -o yaml | grep -i network-policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "inference.fullname" . }}-default-deny
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "inference.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "inference.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Prometheus, so the scrape works. Omitting this is the most common way a
+    # default-deny policy silently breaks monitoring: the target goes down, the
+    # dashboards empty, and the alerts stop firing because their queries return no
+    # series.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace }}
+      ports:
+        - port: http
+          protocol: TCP
+    {{- with .Values.networkPolicy.allowedClientNamespaces }}
+    - from:
+        {{- range . }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+        {{- end }}
+      ports:
+        - port: http
+          protocol: TCP
+    {{- end }}
+    {{- with .Values.networkPolicy.ingressLoadBalancerNamespace }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+      ports:
+        - port: http
+          protocol: TCP
+    {{- end }}
+  egress:
+    # DNS. Leaving this out is the classic mistake: every other rule looks right and
+    # nothing works, because the pod cannot resolve a hostname.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # HTTPS to AWS. A NetworkPolicy cannot name an AWS service, so the rule is
+    # expressed as the port with the instance metadata endpoint excluded. Blocking
+    # metadata removes the node instance role as an escalation path from a
+    # compromised pod, which matters more here than usual: this pod already has an
+    # IRSA identity and has no reason to want the node's.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 169.254.169.254/32
+      ports:
+        - port: 443
+          protocol: TCP
+    {{- if .Values.mlflow.trackingUri }}
+    # The MLflow tracking server, when the serving pod reports its loaded version
+    # back to the registry.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.mlflow.namespace }}
+      ports:
+        - port: {{ .Values.mlflow.port }}
+          protocol: TCP
+    {{- end }}
+{{- if .Values.drift.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "inference.fullname" . }}-drift
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "inference.driftSelectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace }}
+      ports:
+        - port: metrics
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 169.254.169.254/32
+      ports:
+        - port: 443
+          protocol: TCP
+{{- end }}
+{{- end }}

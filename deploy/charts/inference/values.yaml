@@ -1,0 +1,220 @@
+# Default values for the inference chart.
+#
+# Four values have no working default and the templates fail the render without
+# them, on purpose. A chart that installs with a placeholder model and a
+# placeholder role ARN produces a Deployment that comes up, reports healthy, and
+# serves nothing useful:
+#
+#   image.repository            the ECR repository from terraform output
+#   model.version              the registry version; every metric is labelled with it
+#   model.s3Uri                where the init container fetches the artifact
+#   serviceAccount.roleArn     the IRSA role from terraform output irsa_role_arns
+#
+# Everything else has a default chosen for a small production service and is
+# documented where the reason is not obvious.
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 3
+revisionHistoryLimit: 5
+terminationGracePeriodSeconds: 45
+logLevel: info
+
+image:
+  # From: terraform -chdir=terraform/envs/dev output -json ecr_repository_urls
+  repository: ""
+  tag: latest
+  # Prefer the digest. A tag is a mutable pointer, and the pod that restarts
+  # overnight can then run different code from the pod you tested. ECR tag
+  # immutability helps inside one repository and does not make a tag a content
+  # address.
+  digest: ""
+  # Set true in staging and production. The render fails rather than installing a
+  # tag-pinned image, which is the behaviour you want in an environment where
+  # "what is actually running" has to be answerable.
+  requireDigestPinning: false
+  pullPolicy: IfNotPresent
+  # Stamped into the ConfigMap so /model reports the commit the image was built
+  # from. The CI workflow passes it.
+  gitSha: unknown
+
+# The init container that copies the model out of S3. A small image with the AWS
+# CLI; it does not need python, torch or the serving code.
+modelFetcher:
+  image: public.ecr.aws/aws-cli/aws-cli:latest
+
+model:
+  name: demand-forecast
+  # No default. The value labels every metric the service emits, and "unknown"
+  # makes a latency or accuracy regression unattributable to a version.
+  version: ""
+  # s3://<artifact bucket>/models/demand-forecast/<version>/model.onnx
+  s3Uri: ""
+  # The ONNX graph for this model is a few hundred kilobytes. The limit is set far
+  # above that so a larger model does not need a chart change, and low enough that
+  # a runaway download cannot fill the node's ephemeral storage.
+  volumeSizeLimit: 2Gi
+
+aws:
+  region: us-east-1
+  artifactBucket: ""
+
+mlflow:
+  # Used by the NetworkPolicy egress rule and passed to the drift exporter.
+  trackingUri: http://mlflow.mlflow.svc.cluster.local:5000
+  namespace: mlflow
+  port: 5000
+
+serviceAccount:
+  create: true
+  name: inference
+  # From: terraform output -json irsa_role_arns
+  roleArn: ""
+  annotations: {}
+
+service:
+  port: 80
+  # 8080 because SageMaker hosting requires it, and using the same port here means
+  # one number appears in the Dockerfile, the chart and the SageMaker model
+  # definition rather than three.
+  targetPort: 8080
+
+resources:
+  requests:
+    # The HPA scales on utilisation of the request, so this number is also the
+    # denominator of your autoscaling decision. Too low and the HPA scales at a
+    # trivial load; too high and it never scales.
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+    # Deliberately empty. A CPU limit on an inference pod produces cgroup
+    # throttling that appears as tail latency with no rise in request rate, and it
+    # is one of the hardest symptoms to diagnose from a dashboard. If your
+    # organisation requires one, set it here and raise limits.intraOpThreads to
+    # match, never above.
+    cpu: ""
+
+limits:
+  # A hard ceiling on batch size. Without it one caller can push a batch sized for
+  # a training job through a pod sized for online requests and take the pod out of
+  # its latency budget for everyone. SageMaker also allows the model only 60
+  # seconds per /invocations call.
+  maxBatchSize: 512
+  # Predictions are counts and cannot be negative. The model's exp() head already
+  # guarantees it, so a clamp firing means the wrong artifact is loaded, which is
+  # why InferencePredictionClamped is a critical alert rather than a warning.
+  predictionClampMin: 0
+  predictionClampMax: 100000
+  # Must not exceed the pod's CPU allowance. ONNX Runtime sizes its thread pool
+  # from the host core count unless told otherwise, and inside a container that is
+  # the wrong number.
+  intraOpThreads: 1
+
+probes:
+  # 3 second period times 40 is two minutes for the model to load before the pod is
+  # declared failed. Raise it if your model is large; the liveness probe is
+  # suspended while the startup probe is still running, so a generous value here
+  # costs nothing except a slower report of a genuinely broken pod.
+  startupFailureThreshold: 40
+
+rollout:
+  maxSurge: 1
+  # Gives kube-proxy on every node time to remove this pod from the Service before
+  # the process starts shutting down. Without it you see a handful of 502s on every
+  # deploy and conclude, wrongly, that the new version is broken.
+  preStopSleepSeconds: 5
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 12
+  # 70 percent of the request, leaving headroom for the burst that a scale-up takes
+  # a minute or two to satisfy.
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  # A count, not a percentage: a percentage on a small Deployment rounds in a way
+  # that either blocks every node drain or permits all pods to go at once.
+  minAvailable: 2
+
+nodeSelector:
+  workload: inference
+
+podAnnotations: {}
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    # Requires the Prometheus Operator CRDs, installed by the observability
+    # terraform module. Without them this object cannot be created and helm fails
+    # with "no matches for kind ServiceMonitor".
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    additionalLabels: {}
+    # Python's client exports process and GC metrics on every scrape. Occasionally
+    # useful, and a large share of this service's series.
+    keepRuntimeMetrics: false
+  prometheusRule:
+    enabled: true
+    additionalLabels: {}
+
+alerts:
+  # Set this to your repository's runbook URL so every alert links to the procedure
+  # for it. Left as a relative path by default rather than inventing a hostname.
+  runbookBaseUrl: docs/RUNBOOK.md
+  # 2 percent of requests failing over five minutes. Tighter than a typical web
+  # service, because an inference client usually has no retry and a failed
+  # prediction becomes a missing value in someone's decision.
+  errorRatioThreshold: 0.02
+  # Set this from your measured p99 plus headroom, not from a round number. A
+  # threshold below your normal p99 produces an alert that is always firing, which
+  # is the same as having no alert.
+  latencyP99Seconds: 0.5
+  rejectionRatioThreshold: 0.05
+  # A 25 percent move in the mean prediction against the same window yesterday.
+  # Loose enough to survive a genuine weekday-to-weekend pattern, tight enough to
+  # catch a model that has started predicting something different.
+  predictionShiftRatio: 0.25
+  # Just over two drift intervals at the default 900 second cadence, so one missed
+  # cycle does not alert and two do.
+  driftStalenessSeconds: 2100
+
+networkPolicy:
+  # Requires a CNI that enforces NetworkPolicy. With the Amazon VPC CNI that means
+  # enabling network policy on the add-on; otherwise these objects exist and
+  # enforce nothing, which is worse than not having them because they read as
+  # protection.
+  enabled: true
+  monitoringNamespace: monitoring
+  allowedClientNamespaces: []
+  ingressLoadBalancerNamespace: ""
+
+drift:
+  # The exporter that compares production inputs against the training reference.
+  # A long-running Deployment rather than a CronJob, because Prometheus scrapes and
+  # a pod that exits cannot be scraped.
+  enabled: true
+  # The training image: the exporter needs pandas and the same PSI implementation
+  # the promotion gate uses. A second implementation would eventually disagree.
+  image: ""
+  referenceUri: ""
+  windowUri: ""
+  port: 9102
+  serviceAccount:
+    name: drift-monitor
+    roleArn: ""
+  nodeSelector:
+    workload: system
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      # The exporter loads a window of production data into a DataFrame. A window
+      # larger than expected should be a clear OOMKill, not a node under memory
+      # pressure.
+      memory: 2Gi

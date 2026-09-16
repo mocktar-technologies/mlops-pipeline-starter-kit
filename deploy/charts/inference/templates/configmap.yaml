@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inference.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+data:
+  # Nothing secret is here and nothing secret belongs here. The service holds no
+  # credentials: it reads the model through its IRSA role, and a ConfigMap is
+  # readable by anyone with get on the namespace.
+  MODEL_NAME: {{ .Values.model.name | quote }}
+  MODEL_VERSION: {{ .Values.model.version | quote }}
+  GIT_SHA: {{ .Values.image.gitSha | quote }}
+  SERVING_PORT: {{ .Values.service.targetPort | quote }}
+  LOG_LEVEL: {{ .Values.logLevel | quote }}
+  MAX_BATCH_SIZE: {{ .Values.limits.maxBatchSize | quote }}
+  PREDICTION_CLAMP_MIN: {{ .Values.limits.predictionClampMin | quote }}
+  PREDICTION_CLAMP_MAX: {{ .Values.limits.predictionClampMax | quote }}
+  # Must not exceed the pod's CPU allowance. ONNX Runtime otherwise creates more
+  # threads than the cgroup can run, and they contend rather than parallelise.
+  SERVING_INTRA_OP_THREADS: {{ .Values.limits.intraOpThreads | quote }}
+  METRICS_ENABLED: {{ .Values.metrics.enabled | quote }}
+  AWS_REGION: {{ .Values.aws.region | quote }}

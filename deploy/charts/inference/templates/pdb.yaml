@@ -1,0 +1,17 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "inference.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+spec:
+  # minAvailable as a count, not a percentage. A percentage on a two-replica
+  # Deployment rounds in a way that either blocks every drain or permits both pods
+  # to go at once, depending on the value, and neither is what you meant.
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "inference.selectorLabels" . | nindent 6 }}
+{{- end }}

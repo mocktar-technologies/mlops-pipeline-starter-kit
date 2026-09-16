@@ -1,0 +1,149 @@
+{{- if .Values.drift.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "inference.fullname" . }}-drift
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    app.kubernetes.io/component: drift-exporter
+spec:
+  # One replica, always. Two replicas would compute the same index twice, doubling
+  # the S3 read cost for no benefit, and would produce two series that disagree
+  # slightly because they read at different moments.
+  replicas: 1
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "inference.driftSelectorLabels" . | nindent 6 }}
+  strategy:
+    # Recreate, not RollingUpdate. During a rolling update two exporters would
+    # briefly both be scraped, and the stale one would publish an older PSI under
+    # the same series name.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "inference.labels" . | nindent 8 }}
+        {{- include "inference.driftSelectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: drift-exporter
+    spec:
+      serviceAccountName: {{ .Values.drift.serviceAccount.name }}
+      terminationGracePeriodSeconds: 30
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      nodeSelector:
+        {{- toYaml .Values.drift.nodeSelector | nindent 8 }}
+
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi
+
+      containers:
+        - name: drift-exporter
+          # The training image, because the exporter needs pandas and the PSI code
+          # that the training pipeline also uses. One image, one implementation of
+          # the index: a second implementation for the exporter would eventually
+          # disagree with the one the gate uses.
+          image: {{ required "drift.image is required" .Values.drift.image | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          args:
+            - drift
+            - --reference-uri
+            - {{ required "drift.referenceUri is required" .Values.drift.referenceUri | quote }}
+            - --window-uri
+            - {{ required "drift.windowUri is required" .Values.drift.windowUri | quote }}
+            - --port
+            - {{ .Values.drift.port | quote }}
+
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.aws.region | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.aws.region | quote }}
+            - name: AWS_STS_REGIONAL_ENDPOINTS
+              value: regional
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | upper | quote }}
+            # The CLI reads the thresholds and the interval from the committed
+            # config file in the image, so they are the same numbers the training
+            # pipeline uses. They are not repeated here.
+            - name: MLFLOW_TRACKING_URI
+              value: {{ .Values.mlflow.trackingUri | quote }}
+            - name: ARTIFACT_BUCKET
+              value: {{ required "aws.artifactBucket is required" .Values.aws.artifactBucket | quote }}
+
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.drift.port }}
+              protocol: TCP
+
+          # A TCP probe, not an HTTP one. The exporter's HTTP server comes up before
+          # the first computation finishes, and an HTTP probe against /metrics would
+          # pass immediately and tell you nothing more. Whether the computation is
+          # actually current is what DriftMonitorStale answers, and that is a
+          # Prometheus question, not a probe question.
+          livenessProbe:
+            tcpSocket:
+              port: metrics
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            failureThreshold: 4
+
+          readinessProbe:
+            tcpSocket:
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 15
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+          resources:
+            requests:
+              cpu: {{ .Values.drift.resources.requests.cpu | quote }}
+              memory: {{ .Values.drift.resources.requests.memory | quote }}
+            limits:
+              # Memory is limited because the exporter loads a window of production
+              # data into a DataFrame, and a window larger than expected is exactly
+              # the case where you want a clear OOMKill rather than a node under
+              # memory pressure.
+              memory: {{ .Values.drift.resources.limits.memory | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "inference.fullname" . }}-drift
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- include "inference.driftSelectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: drift-exporter
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "inference.driftSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: metrics
+      port: {{ .Values.drift.port }}
+      targetPort: metrics
+      protocol: TCP
+{{- end }}

@@ -1,0 +1,93 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "inference.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  # Selects the Service, and Prometheus then scrapes its endpoints, which means one
+  # scrape per pod rather than one scrape through the Service's load balancing. That
+  # distinction matters: scraping through a ClusterIP gives you a random pod each
+  # interval, and per-pod counters become meaningless.
+  selector:
+    matchLabels:
+      {{- include "inference.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout }}
+      scheme: http
+      # honorLabels false, so a label the application sets cannot overwrite the
+      # namespace, pod or job labels Prometheus attaches. An application that can
+      # rewrite its own job label can make its metrics appear to come from another
+      # service.
+      honorLabels: false
+      relabelings:
+        # Carry the pod name through as a label. Without it, a single misbehaving
+        # replica is invisible: you see the aggregate and cannot tell whether one
+        # pod is responsible.
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+          action: replace
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+          action: replace
+        # The model version comes from the pod label, which the Deployment template
+        # sets from the same value as the container's MODEL_VERSION. Two sources
+        # for one fact, kept in step by the chart.
+        - sourceLabels: [__meta_kubernetes_pod_label_model_version]
+          targetLabel: model_version_label
+          action: replace
+      metricRelabelings:
+        # Python's client exports process and GC metrics on every scrape. They are
+        # occasionally useful and they are a large share of the series this service
+        # produces, so they are dropped by default and can be kept by setting
+        # metrics.serviceMonitor.keepRuntimeMetrics.
+        {{- if not .Values.metrics.serviceMonitor.keepRuntimeMetrics }}
+        - sourceLabels: [__name__]
+          regex: "python_gc_.*|python_info|process_.*"
+          action: drop
+        {{- end }}
+{{- end }}
+---
+{{- if and .Values.drift.enabled .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "inference.fullname" . }}-drift
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "inference.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "inference.driftSelectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      # The exporter recomputes on a long interval, so a short scrape interval
+      # would return the same value many times. It is scraped often enough that the
+      # staleness alert can fire promptly and no more.
+      interval: 60s
+      scrapeTimeout: 10s
+      honorLabels: false
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+          action: replace
+{{- end }}

@@ -1,0 +1,74 @@
+# Development overrides.
+#
+# Copy this to values-staging.yaml and values-prod.yaml and change what differs.
+# The values that must change per environment are the image digest, the model
+# version and URI, and the IRSA role ARNs; every one of them comes from a terraform
+# output or from the CI pipeline, so none of them is committed with a real value.
+#
+# Install with:
+#   helm upgrade --install inference deploy/charts/inference \
+#     --namespace inference --create-namespace \
+#     --values deploy/charts/inference/values-dev.yaml \
+#     --set image.digest="sha256:..." \
+#     --set model.version="7" \
+#     --set model.s3Uri="s3://.../models/demand-forecast/7/model.onnx"
+
+replicaCount: 2
+
+image:
+  repository: ""
+  tag: latest
+  # False in development so an engineer can iterate against a tag. True everywhere
+  # else.
+  requireDigestPinning: false
+
+model:
+  name: demand-forecast
+  version: ""
+  s3Uri: ""
+
+aws:
+  region: us-east-1
+  artifactBucket: ""
+
+serviceAccount:
+  roleArn: ""
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    memory: 768Mi
+    cpu: ""
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+
+podDisruptionBudget:
+  # Off with two replicas in development: a budget of 1 available out of 2 blocks a
+  # node drain whenever one pod is already restarting, which turns every cluster
+  # upgrade in a development account into a manual intervention.
+  enabled: false
+
+alerts:
+  # Looser in development, where load is synthetic and a p99 measured from three
+  # requests is meaningless.
+  latencyP99Seconds: 2.0
+  errorRatioThreshold: 0.10
+
+drift:
+  enabled: true
+  image: ""
+  referenceUri: ""
+  windowUri: ""
+  serviceAccount:
+    roleArn: ""
+
+networkPolicy:
+  enabled: true
+  monitoringNamespace: monitoring
+  allowedClientNamespaces:
+    - mlops-pipelines
