@@ -1,0 +1,15 @@
+# Runtime dependencies for the inference container.
+#
+# Deliberately small. Every package here is loaded into every inference pod and
+# has to be patched on the serving path, so anything that is only needed to
+# train a model belongs in training.in instead.
+#
+# Compile with:  make lock
+# That regenerates serving.txt with pinned versions and hashes.
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+onnxruntime==1.30.0
+numpy==2.5.3
+prometheus-client==0.26.0

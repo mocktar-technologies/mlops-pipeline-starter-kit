@@ -1,0 +1,16 @@
+# Dependencies for the MLflow tracking server image.
+#
+# The mlflow version here must match the version the pipeline client uses in
+# training.in. A client and server that differ by a major version disagree about
+# the registry API, and the resulting error names a missing endpoint rather than a
+# version mismatch.
+
+-c serving.txt
+
+mlflow==3.16.0
+psycopg2-binary==2.9.12
+# The server's own process manager. mlflow server shells out to gunicorn, and it
+# is not a hard dependency of the mlflow package, so an image without it starts
+# and then fails on the first request with a command-not-found.
+gunicorn==26.2.0
+boto3==1.43.93
