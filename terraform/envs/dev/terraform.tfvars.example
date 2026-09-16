@@ -1,0 +1,130 @@
+# Copy to terraform.tfvars, which is gitignored, and fill in the five required
+# values. Everything else has a default chosen for a development account.
+#
+# Nothing in this file is a secret. It holds account-scoped identifiers, which are
+# not credentials but are also not worth publishing, which is why the real file is
+# not committed.
+
+# ---------------------------------------------------------------------------
+# Required
+# ---------------------------------------------------------------------------
+
+# Your GitHub organisation or user, and the repository name. These build the OIDC
+# trust policy subjects, so a typo here produces a CI role that nothing can assume,
+# with an error that mentions only the token.
+github_owner      = "your-org"
+github_repository = "mlops-pipeline-starter-kit"
+
+# From: make bootstrap-state
+state_bucket_arn     = "arn:aws:s3:::mlops-starter-tfstate-000000000000"
+state_lock_table_arn = "arn:aws:dynamodb:us-east-1:000000000000:table/mlops-starter-tfstate-lock"
+
+# Build it first, push it to the mlflow repository this stack creates, then set this
+# to the digest-pinned reference. There is no default: an unpinned public image is
+# not something this stack will choose on your behalf.
+#
+#   make build
+#   docker tag mlflow-server:sha-$(git rev-parse HEAD) <ecr-url>:sha-$(git rev-parse HEAD)
+#   docker push <ecr-url>:sha-$(git rev-parse HEAD)
+#
+# There is a chicken-and-egg here on a first apply: the ECR repository does not
+# exist until this stack is applied. Apply once with the module.mlflow resources
+# targeted out, push the image, then apply fully. The README walks through it.
+mlflow_image = "000000000000.dkr.ecr.us-east-1.amazonaws.com/mlops-starter-dev/mlflow@sha256:REPLACE"
+
+# ---------------------------------------------------------------------------
+# Common overrides
+# ---------------------------------------------------------------------------
+
+project     = "mlops-starter"
+environment = "dev"
+region      = "us-east-1"
+
+# Set a cost centre or an owner. An untagged resource in a shared account is one
+# nobody can attribute when the bill arrives.
+additional_tags = {
+  # CostCentre = "ml-platform"
+  # Owner      = "platform-engineering"
+}
+
+# ---------------------------------------------------------------------------
+# Cost levers, in rough order of how much they matter
+# ---------------------------------------------------------------------------
+
+# One NAT gateway instead of three. The largest single saving in a development
+# account, and a single point of failure plus a cross-zone data charge. Set false
+# for production.
+single_nat_gateway = true
+
+# Interface endpoints for ECR, STS, KMS, Logs, SageMaker and Secrets Manager. Each
+# costs an hourly rate per availability zone, and each removes traffic from the NAT
+# path. In a quiet development account a single NAT gateway can be cheaper; once
+# training runs regularly they pay for themselves on image pulls alone.
+enable_interface_endpoints = true
+
+# GPU nodes. The group is created with a minimum of 0, so it costs nothing idle.
+# Set 0 to disable it entirely, which is right if you train on SageMaker rather than
+# in-cluster; the NVIDIA device plugin is then skipped too.
+gpu_max_size       = 2
+gpu_instance_types = ["g6.xlarge", "g5.xlarge", "g6.2xlarge", "g5.2xlarge"]
+
+# Inference capacity. The minimum is 2 so a node drain cannot take the service to
+# zero replicas.
+inference_min_size = 2
+inference_max_size = 6
+
+# Multi-AZ for the MLflow database roughly doubles its cost and turns an hour-long
+# restore into a failover of about a minute. False for development.
+db_multi_az = false
+
+# Prometheus retention. Two weeks answers "what changed since the last deploy".
+# For longer, remote-write to a long-term store rather than growing this volume.
+prometheus_retention      = "15d"
+prometheus_retention_size = "40GB"
+prometheus_storage_size   = "50Gi"
+
+# Captured inference payloads. This is the S3 prefix that grows without bound if the
+# lifecycle rule is removed.
+inference_capture_retention_days = 90
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+
+# The Kubernetes API endpoint. False means CI needs a self-hosted runner inside the
+# VPC; see the comment on the deploy job in ci-cd-pipeline.yml. If you set it true,
+# narrow the CIDR list: the module refuses 0.0.0.0/0.
+endpoint_public_access       = false
+endpoint_public_access_cidrs = []
+
+# Branches and environments whose workflow runs may assume the CI roles. Every entry
+# becomes a literal OIDC subject matched with StringEquals, and wildcards are
+# rejected: a wildcard subject means anyone who can push a branch can deploy.
+trusted_branches     = ["main"]
+trusted_environments = ["production"]
+
+# Set false in an account that already federates GitHub. Only one OIDC provider per
+# issuer URL can exist in an account.
+create_github_oidc_provider = true
+
+# A permissions boundary on every role this stack creates. The one control that
+# survives someone attaching an over-broad policy later. Strongly recommended in a
+# shared account.
+# permissions_boundary_arn = "arn:aws:iam::000000000000:policy/PlatformBoundary"
+
+# Extra managed policies for the CI apply role. Infrastructure changes need more
+# than the scoped policy the module writes, and naming them here makes the grant
+# visible in a code review instead of hidden behind AdministratorAccess.
+ci_apply_additional_policy_arns = []
+
+# ---------------------------------------------------------------------------
+# Model registry
+# ---------------------------------------------------------------------------
+
+model_name = "demand-forecast"
+
+# A SageMaker model package group mirroring MLflow. Off, because two registries
+# means that on the day they disagree nobody can say which one is right. Turn it on
+# only if your approval process is already built on SageMaker ApprovalStatus, and
+# then write down which one wins.
+enable_sagemaker_model_registry = false
