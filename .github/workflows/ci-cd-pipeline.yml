@@ -56,10 +56,15 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: requirements/dev.txt
+          cache-dependency-path: |
+            requirements/serving.txt
+            requirements/dev.txt
 
       - name: Install tooling
-        run: pip install --require-hashes -r requirements/dev.txt
+        # dev.txt names serving.txt as a constraint, which pins versions without
+        # installing them. mypy needs the real fastapi, pydantic and uvicorn to
+        # check src/serving, so the serving lock is installed alongside it.
+        run: pip install --require-hashes -r requirements/serving.txt -r requirements/dev.txt
 
       - name: Format check
         run: black --check --diff src tests scripts
@@ -118,23 +123,36 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Reclaim runner disk
+        # torch from PyPI is the CUDA build, and it drags in the nvidia-* wheels:
+        # cudnn, cublas, nccl, cusparse and the rest come to roughly four gigabytes
+        # downloaded and more again unpacked, on a runner with about fourteen free.
+        # These three directories are preinstalled toolchains this repository never
+        # uses. Removing them is the cheap fix; the real one is a CPU-only lock for
+        # CI, tracked as an issue, because nothing in this suite touches a GPU.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
+          df -h /
+
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            requirements/training.txt
-            requirements/dev.txt
+        # No pip cache on this job on purpose. Restoring one would put several
+        # gigabytes back onto the disk the job has just run out of, and saving one
+        # would create a cache entry large enough to evict everything else the
+        # repository keeps.
 
+      # The full training requirements, because the suite includes tests that train
+      # a real model, export it to ONNX, and load the result with the serving code.
+      # Those are the tests that catch a broken export, and a CI run that skips them
+      # to save four minutes is not testing the thing that actually breaks.
+      #
+      # --no-cache-dir because pip otherwise keeps a second copy of every wheel it
+      # installs, which on this dependency set is gigabytes never read again.
       - name: Install
-        # The full training requirements, because the suite includes tests that
-        # train a real model, export it to ONNX, and load the result with the
-        # serving code. Those are the tests that catch a broken export, and a CI
-        # run that skips them to save four minutes is not testing the thing that
-        # actually breaks.
         run: |
-          pip install --require-hashes -r requirements/training.txt
-          pip install --require-hashes -r requirements/dev.txt
+          pip install --no-cache-dir --require-hashes -r requirements/training.txt
+          pip install --no-cache-dir --require-hashes -r requirements/dev.txt
 
       - name: Run tests
         run: pytest --cov=src --cov-report=term-missing --cov-report=xml -q
@@ -177,6 +195,12 @@ jobs:
 
       - uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         if: always()
+        # Code scanning is free on public repositories and needs a GitHub Code
+        # Security licence on private ones, so this upload cannot be allowed to
+        # decide the job's result. The Trivy gate below is what fails the build on
+        # a finding; this step only puts the same findings on the Security tab when
+        # the repository is entitled to one.
+        continue-on-error: true
         with:
           sarif_file: trivy-config.sarif
           category: trivy-config
@@ -379,6 +403,10 @@ jobs:
 
       - uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         if: always() && steps.scan.outputs.sarif != ''
+        # Same reason as the IaC scan: the image scan step above already fails the
+        # build on a high finding, so a repository without code scanning should not
+        # fail here as well.
+        continue-on-error: true
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
           category: image-scan
