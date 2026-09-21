@@ -23,4 +23,4 @@ PyYAML==6.0.3
 
 # Used only by the test suite, to build a tiny ONNX fixture graph without
 # pulling PyTorch into the serving test run.
-onnx==1.20.0
+onnx==1.22.0
