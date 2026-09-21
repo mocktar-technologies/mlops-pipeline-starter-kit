@@ -14,7 +14,7 @@ onnx==1.20.0
 # at the end of a training run, which is the most expensive possible place to
 # discover a missing dependency.
 onnxscript==0.7.2
-mlflow==3.16.0
+mlflow==3.16.1
 psycopg2-binary==2.9.12
 pandas==3.0.5
 pyarrow==22.0.0
