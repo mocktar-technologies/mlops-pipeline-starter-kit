@@ -4,7 +4,7 @@ anyio==4.15.1 \
     --hash=sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101 \
     --hash=sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   httpx2
 black==26.1.0 \
     --hash=sha256:101540cb2a77c680f4f80e628ae98bd2bd8812fb9d72ade4f8995c5ff019e82c \
@@ -34,12 +34,12 @@ black==26.1.0 \
     --hash=sha256:eb07665d9a907a1a645ee41a0df8a25ffac8ad9c26cdb557b7b88eeeeec934e0 \
     --hash=sha256:f016baaadc423dc960cdddf9acae679e71ee02c4c341f78f3179d7e4819c095f \
     --hash=sha256:fb1dafbbaa3b1ee8b4550a84425aac8874e5f390200f5502cf3aee4a2acb2f14
-    # via -r requirements/dev.in
+    # via -r dev.in
 click==8.5.0 \
     --hash=sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360 \
     --hash=sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   black
 coverage[toml]==7.16.0 \
     --hash=sha256:01b18b8a6c9cec8d5f45550e2501426ed982cf2c35016b0acd2ba9b5d8b2fb06 \
@@ -168,7 +168,7 @@ h11==0.16.0 \
     --hash=sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1 \
     --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   httpcore2
 httpcore2==2.12.0 \
     --hash=sha256:7e04258ce01013d7d615e5b910a3b27fac937d7a95038227e79652b4ba3b4ceb \
@@ -177,12 +177,12 @@ httpcore2==2.12.0 \
 httpx2==2.12.0 \
     --hash=sha256:7631fe9887a8a2275f4a2540e053aa670fcc50742864a9ae7c66e609fdcf12cf \
     --hash=sha256:cc8b6eecb8661c146b8f89a60e97456ee086e91a784ed31ac450c3a9e613dd36
-    # via -r requirements/dev.in
+    # via -r dev.in
 idna==3.19 \
     --hash=sha256:5e0811a4383b21dc5838069f801c4fb62113b7447663d2530d2bd6e77b49bf15 \
     --hash=sha256:815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   anyio
     #   httpx2
 iniconfig==2.3.0 \
@@ -413,7 +413,7 @@ mypy==1.19.1 \
     --hash=sha256:f7cee03c9a2e2ee26ec07479f38ea9c884e301d42c6d43a19d20fb014e3ba925 \
     --hash=sha256:f859fb09d9583a985be9a493d5cfc5515b56b08f7447759a0c5deaf68d80506e \
     --hash=sha256:ffcebe56eb09ff0c0885e750036a095e23793ba6c2e894e7e63f6d89ad51f22e
-    # via -r requirements/dev.in
+    # via -r dev.in
 mypy-extensions==1.1.0 \
     --hash=sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505 \
     --hash=sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558
@@ -488,46 +488,47 @@ numpy==2.5.3 \
     --hash=sha256:fc36dc566135b5eceec4cf89758fcb719266a019ef07dae1754ae7c9f617ef3e \
     --hash=sha256:ffdc76bfcae6b255dff75202c5e7feaf95b40246bc0a17944facc1fecf9f79ab
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   ml-dtypes
     #   onnx
     #   pandas-stubs
-onnx==1.20.0 \
-    --hash=sha256:00dc8ae2c7b283f79623961f450b5515bd2c4b47a7027e7a1374ba49cef27768 \
-    --hash=sha256:02e0d72ab09a983fce46686b155a5049898558d9f3bc6e8515120d6c40666318 \
-    --hash=sha256:1a93ec69996b4556062d552ed1aa0671978cfd3c17a40bf4c89a1ae169c6a4ad \
-    --hash=sha256:1d3d0308e2c194f4b782f51e78461b567fac8ce6871c0cf5452ede261683cc8f \
-    --hash=sha256:1ecca1f963d69e002c03000f15844f8cac3b6d7b6639a934e73571ee02d59c35 \
-    --hash=sha256:2241c85fdaa25a66565fcd1d327c7bcd8f55165420ebaee1e9563c3b9bf961c9 \
-    --hash=sha256:259b05758d41645f5545c09f887187662b350d40db8d707c33c94a4f398e1733 \
-    --hash=sha256:2d25a9e1fde44bc69988e50e2211f62d6afcd01b0fd6dfd23429fd978a35d32f \
-    --hash=sha256:31efe37d7d1d659091f34ddd6a31780334acf7c624176832db9a0a8ececa8fb5 \
-    --hash=sha256:392ca68b34b97e172d33b507e1e7bfdf2eea96603e6e7ff109895b82ff009dc7 \
-    --hash=sha256:3a6de7dda77926c323b0e5a830dc9c2866ce350c1901229e193be1003a076c25 \
-    --hash=sha256:3e941d0f3edd57e1d63e2562c74aec2803ead5b965e76ccc3d2b2bd4ae0ea054 \
-    --hash=sha256:6930ed7795912c4298ec8642b33c99c51c026a57edf17788b8451fe22d11e674 \
-    --hash=sha256:71177f8fd5c0dd90697bc281f5035f73707bdac83257a5c54d74403a1100ace9 \
-    --hash=sha256:7646e700c0a53770a86d5a9a582999a625a3173c4323635960aec3cba8441c6a \
-    --hash=sha256:7e706470f8b731af6d0347c4f01b8e0e1810855d0c71c467066a5bd7fa21704b \
-    --hash=sha256:9d1a4e02148b2a7a4b82796d0ecdb6e49ba7abd34bb5a9de22af86aad556fb76 \
-    --hash=sha256:afc4cf83ce5d547ebfbb276dae8eb0ec836254a8698d462b4ba5f51e717fd1ae \
-    --hash=sha256:d0bdfd22fe92b87bf98424335ec1191ed79b08cd0f57fe396fab558b83b2c868 \
-    --hash=sha256:d75da05e743eb9a11ff155a775cae5745e71f1cd0ca26402881b8f20e8d6e449 \
-    --hash=sha256:ee46cdc5abd851a007a4be81ee53e0e303cf9a0e46d74231d5d361333a1c9411 \
-    --hash=sha256:f62978ecfb8f320faba6704abd20253a5a79aacc4e5d39a9c061dd63d3b7574f \
-    --hash=sha256:f8424c95491de38ecc280f7d467b298cb0b7cdeb1cd892eb9b4b9541c00a600e
-    # via -r requirements/dev.in
+onnx==1.23.1 \
+    --hash=sha256:03192f2c890327331836019c90c1bff08137a40133ad118870ec96a8c6d1f045 \
+    --hash=sha256:2f60fa87728e80abed9e590395fe14608f12c874df52ef8045fc1476b698cb27 \
+    --hash=sha256:36222ab8359e41a0bea8547ad280075b13d1503831ff180ab76c7a61b4920f56 \
+    --hash=sha256:392abcab682194e59035eeab82992c8b7626dbcb3f75da0a4a11aa60b2e17738 \
+    --hash=sha256:3e6e4e5d8e1b4cc6df50fd3cf524deff8b5d07c6d8574abe641e44585a5d81fe \
+    --hash=sha256:40ea7e62fb3d4f808900dbb0406ccf5ab1f1e757065a90f60710ecd937fb5de5 \
+    --hash=sha256:43210324e7d0ee42140a247c5dc57c609773ee57096802dc5fefb6e52956d38f \
+    --hash=sha256:4c299578f7ca0f8c2d60ee0b78c77c374ad8fdedb0da6960831d487d0754f222 \
+    --hash=sha256:502f6d8d195fc8483316a571e0b387d22e335395816f39a2d33431f657ece394 \
+    --hash=sha256:6c3e7de961b78b6e07db6bc36afdf387c6cd9b296d594672fbca55fe5cfbb5b5 \
+    --hash=sha256:7a1de7765463c7baab9a102ca89bcfda833e8343c3b15ac535bc74c87d96b11e \
+    --hash=sha256:7c5ddc009ca7e25b5ea33bee6e3425de349fda789cdb33c1c90d965d77f17520 \
+    --hash=sha256:8333a5e345aafae021430fdbb6b33888c33e1d3f555234b8d29ab59a5c27b2b8 \
+    --hash=sha256:841abf9ace04a31455909b2044418df4082e065863cfcaed74a64134a36676bb \
+    --hash=sha256:92ec43ff621784487b43e5b3eeedba390071666bd5ad529b6d98416adef6a875 \
+    --hash=sha256:a48c73b2cf396c530ef5a8ea64b2fa9b52d4246f14d0eb8f7dc67d6f7443a3d2 \
+    --hash=sha256:c01ecbf23ed8d95c008be3cea01e6d29ffa8d5a2bc645e39f0886b7af31ed21b \
+    --hash=sha256:c49a8eb0a4599d115a8dc5fa13b44571e3eca5a49d714f0be61f41a314f04811 \
+    --hash=sha256:da598e449ef8d6cc4fa30c183f800e31ef4ed0ac078015a0e91e82f55d3b5619 \
+    --hash=sha256:dc6085a10f4cb61d132f395535f7cf6399664b0f44dd2fcf144ce66b0f859c8d \
+    --hash=sha256:e3ab8abe95c684e3fd0da67e19b99df38906706d5ac0f91839060fb658606696 \
+    --hash=sha256:ef46bffa69629f90a64860c05d2258b6fff4052c07334f4fdd00b9d1a4c4b8e2 \
+    --hash=sha256:f87ae6ba62e109ac9a1a87f69827ac77f27d0a7b53b38a37b5185eed509c1226 \
+    --hash=sha256:f8ca511ad1949a1736456bdfc27b87ac45d3cdb2f568d3fb2646a85ca2ba4a8d
+    # via -r dev.in
 packaging==26.3 \
     --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
     --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   black
     #   pytest
 pandas-stubs==3.0.5.260730 \
     --hash=sha256:60e90e3e1eda6937e337e243cbe6217e151c11137cd7eddf832af537c7310bfd \
     --hash=sha256:f70a232c57d93a5a2c81f8a53953e10891a5374bc92652277deb325e2e4d0ff3
-    # via -r requirements/dev.in
+    # via -r dev.in
 pathspec==1.1.1 \
     --hash=sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a \
     --hash=sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189
@@ -554,7 +555,7 @@ protobuf==7.36.1 \
     --hash=sha256:97198b77e369a0abd8e262b8f6c7266c55ddb796a3a12c76d7b8881188ed83aa \
     --hash=sha256:d0f6470f0ce2b84e3feaea2d4b816378b37ba4d4aa08a274305373de93e2d524
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   onnx
 pygments==2.21.0 \
     --hash=sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9 \
@@ -564,16 +565,16 @@ pytest==9.1.1 \
     --hash=sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313 \
     --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
     # via
-    #   -r requirements/dev.in
+    #   -r dev.in
     #   pytest-cov
 pytest-cov==7.0.0 \
     --hash=sha256:33c97eda2e049a0c5298e91f519302a1334c26ac65c1a483d6206fd458361af1 \
     --hash=sha256:3b8e9558b16cc1479da72058bdecf8073661c7f57f7d3c5f22a1c23507f2d861
-    # via -r requirements/dev.in
+    # via -r dev.in
 python-hcl2==8.1.4 \
     --hash=sha256:75738bd95717d692a683495babf4d00063f1b211e2eca04b156c6d79b9a0feae \
     --hash=sha256:b4145c930540e99e3e9b4f7de297775bdf856df29782a7abdb0916cbfcab7865
-    # via -r requirements/dev.in
+    # via -r dev.in
 pytokens==0.4.1 \
     --hash=sha256:0fc71786e629cef478cbf29d7ea1923299181d0699dbe7c3c0f4a583811d9fc1 \
     --hash=sha256:11edda0942da80ff58c4408407616a310adecae1ddd22eef8c692fe266fa5009 \
@@ -693,8 +694,8 @@ pyyaml==6.0.3 \
     --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
     --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
     # via
-    #   -c requirements/serving.txt
-    #   -r requirements/dev.in
+    #   -c serving.txt
+    #   -r dev.in
 regex==2026.9.10 \
     --hash=sha256:030fa9e23624e39b3b94e46b90a5abd1a1678eb2f58fcdd3fd6c27526bf91c7e \
     --hash=sha256:032da15431c890d376f53547f0a6219f4f4cd19f3e4f11bdc321453b5bd207e4 \
@@ -846,7 +847,7 @@ ruff==0.16.7 \
     --hash=sha256:ce05b62b770a8217c4646a9c4139fca00efe8fe5d71f87df2b243ff20d4584d1 \
     --hash=sha256:e6651f97a342d8b35d54d8991544ca22169b86dc54111cb604666940c431b750 \
     --hash=sha256:ef140c6eb935fa9a84c9c607dfb2cb1b85843c192e79265b0c54f35f557ea8e5
-    # via -r requirements/dev.in
+    # via -r dev.in
 truststore==0.10.4 \
     --hash=sha256:9d91bd436463ad5e4ee4aba766628dd6cd7010cf3e2461756b3303710eebc301 \
     --hash=sha256:adaeaecf1cbb5f4de3b1959b42d41f6fab57b2b1666adb59e89cb0b53361d981
@@ -856,13 +857,12 @@ truststore==0.10.4 \
 types-pyyaml==6.0.12.20250915 \
     --hash=sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3 \
     --hash=sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6
-    # via -r requirements/dev.in
+    # via -r dev.in
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
     --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   anyio
-    #   httpx2
     #   mypy
     #   onnx
