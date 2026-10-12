@@ -8,7 +8,7 @@
 -c serving.txt
 
 torch==2.10.0
-onnx==1.20.0
+onnx==1.23.2
 # torch.onnx.export uses the dynamo exporter by default from torch 2.6 onward,
 # and that path imports onnxscript. Without it the export raises ModuleNotFoundError
 # at the end of a training run, which is the most expensive possible place to
