@@ -137,19 +137,19 @@ annotated-doc==0.0.5 \
     --hash=sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101 \
     --hash=sha256:c7e58ce09192557605d8bbd92836d7e1d520ac9580096042c0bfd197efacf1bb
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   fastapi
 annotated-types==0.8.0 \
     --hash=sha256:13b2beaad985e05e2d6407ee4c4f35590b11f8d693a258a561055cac8f64cab7 \
     --hash=sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   pydantic
 anyio==4.15.1 \
     --hash=sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101 \
     --hash=sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   mlflow-skinny
     #   starlette
 attrs==26.1.0 \
@@ -163,7 +163,7 @@ blinker==1.9.0 \
 boto3==1.43.93 \
     --hash=sha256:196bfc8b4c9cd5505f9f7b963e30956db3a00fd47e20dd0ee3574a243c1fb212 \
     --hash=sha256:3c948fe231490d446bf90bf3322d1452632107329d3683b37d88b7399bf481a0
-    # via -r requirements/training.in
+    # via -r training.in
 botocore==1.43.93 \
     --hash=sha256:3ca57bb5d26d88b554a74de708a5c991f45306436c91aacca931252d1d4d54ff \
     --hash=sha256:82da355d18a7f784347b00444be33942834651f31b6c5ffef49999cd47364c5e
@@ -460,7 +460,7 @@ click==8.5.0 \
     --hash=sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360 \
     --hash=sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   flask
     #   mlflow-skinny
     #   uvicorn
@@ -592,35 +592,46 @@ cryptography==50.0.1 \
     # via
     #   google-auth
     #   mlflow
-cuda-bindings==12.9.4 \
-    --hash=sha256:1f53a7f453d4b2643d8663d036bafe29b5ba89eb904c133180f295df6dc151e5 \
-    --hash=sha256:20f2699d61d724de3eb3f3369d57e2b245f93085cab44fd37c3bea036cea1a6f \
-    --hash=sha256:32bdc5a76906be4c61eb98f546a6786c5773a881f3b166486449b5d141e4a39f \
-    --hash=sha256:37744e721a18a514423e81863f52a4f7f46f5a6f9cccd569f2735f8067f4d8c2 \
-    --hash=sha256:3adf4958dcf68ae7801a59b73fb00a8b37f8d0595060d66ceae111b1002de38d \
-    --hash=sha256:443b0875916879c2e4c3722941e25e42d5ab9bcbf34c9e83404fb100fa1f6913 \
-    --hash=sha256:4d3c842c2a4303b2a580fe955018e31aea30278be19795ae05226235268032e5 \
-    --hash=sha256:53a10c71fdbdb743e0268d07964e5a996dd00b4e43831cbfce9804515d97d575 \
-    --hash=sha256:53e11991a92ff6f26a0c8a98554cd5d6721c308a6b7bfb08bebac9201e039e43 \
-    --hash=sha256:56e0043c457a99ac473ddc926fe0dc4046694d99caef633e92601ab52cbe17eb \
-    --hash=sha256:694ba35023846625ef471257e6b5a4bc8af690f961d197d77d34b1d1db393f56 \
-    --hash=sha256:696ca75d249ddf287d01b9a698b8e2d8a05046495a9c051ca15659dc52d17615 \
-    --hash=sha256:893ca68114b5b769c1d4c02583b91ed22691887c3ed513b59467d23540104db4 \
-    --hash=sha256:8b72ee72a9cc1b531db31eebaaee5c69a8ec3500e32c6933f2d3b15297b53686 \
-    --hash=sha256:9866ceec83e39337d1a1d64837864c964ad902992478caa288a0bc1be95f21aa \
-    --hash=sha256:a022c96b8bd847e8dc0675523431149a4c3e872f440e3002213dbb9e08f0331a \
-    --hash=sha256:a2e82c8985948f953c2be51df45c3fe11c812a928fca525154fb9503190b3e64 \
-    --hash=sha256:a6a429dc6c13148ff1e27c44f40a3dd23203823e637b87fd0854205195988306 \
-    --hash=sha256:b32d8b685f0e66f5658bcf4601ef034e89fc2843582886f0a58784a4302da06c \
-    --hash=sha256:c912a3d9e6b6651853eed8eed96d6800d69c08e94052c292fec3f282c5a817c9 \
-    --hash=sha256:cf8bfaedc238f3b115d957d1fd6562b7e8435ba57f6d0e2f87d0e7149ccb2da5 \
-    --hash=sha256:d80bffc357df9988dca279734bc9674c3934a654cab10cadeed27ce17d8635ee \
-    --hash=sha256:f69107389e6b9948969bfd0a20c4f571fd1aefcfb1d2e1b72cc8ba5ecb7918ab \
-    --hash=sha256:fda147a344e8eaeca0c6ff113d2851ffca8f7dfc0a6c932374ee5c47caa649c8
+cuda-bindings==13.4.4 \
+    --hash=sha256:03a8fd2a25530dbae26ecd4462d418156028e35b3f3b081440ff6368506e10eb \
+    --hash=sha256:0c3f4cc887eac0d5edb5d7396cc78b336bee151a97e2ba7acf59e8b9380132d0 \
+    --hash=sha256:0ce9208c7cf03a947ac11553b08ee2fca594ac63d34360639a9060980f546a62 \
+    --hash=sha256:0d714d5a85174530b58b39a8e06664ebc6296e62a90d66b0b2eb4dbdfaaabe5b \
+    --hash=sha256:433efa31e33c2868621b5f6036bd3bf5de9c45c5546cb1361a5f6ff3415b8bb5 \
+    --hash=sha256:4a429132f06d0c3a853aa419aabe4c0a7bfc3f3886fb4c336d81729f63754d31 \
+    --hash=sha256:50bc70ef3b225f4794f5b374773629836bbfdf4a21fc975ac25e7daad67494b8 \
+    --hash=sha256:5d6adc44f098472d8ac2d6211923eea6081830521852dc77f8c9237bf9320a59 \
+    --hash=sha256:6781fe08ed5f4b5163a3c6577e079bc28955811382d35995c916bf052ee0994e \
+    --hash=sha256:680e70dcb8b61fdae16d3bb4876c41d55aadc9fe8b3825ea567f2f2c85606b0a \
+    --hash=sha256:76dafd37ff5191f183ea9c1d981f7bb541df5c0bec502bcc4cc84a3eea706b40 \
+    --hash=sha256:787936778fb69a66afa5d7769086640cbf938a3b83f2b8171174a46d115e87ce \
+    --hash=sha256:85d961133658fff3167cfcf69de1beac8e46453c15fd4bcaa4a96d3ef1110c69 \
+    --hash=sha256:87899d738c2c093821b8306e96585fbceb3a9d69a1e1598b9e4639aabf9548ce \
+    --hash=sha256:90f85a00fc89dd4a8f7c4beb0a2f3f788b845c8496fe84adc1217830206db9e0 \
+    --hash=sha256:939d2672199048649fd2118e4df9df770a517711e50d25c05f880f3606b78142 \
+    --hash=sha256:93ad74e8181a89e7886be9d06414a772701081c9edcf6c84d9fc1ccda50f6767 \
+    --hash=sha256:978927d7b911e80fa5a7308284c39c79b1182c48f47ed62717fc7f5c22f6ded4 \
+    --hash=sha256:a4c97f8430d7f7c4a4d0f245510d26647dd81ea3fc65941f7a815ad395cbc30e \
+    --hash=sha256:a8109e8ca1e40b666fc94d7bc4a172dfb99746a7d3fd933ee17b3f36f48f24ab \
+    --hash=sha256:b346bfe1dda49537537c06cc4727b2210d949d8aee883cb591bca46581629d00 \
+    --hash=sha256:b8b2e4235b552edb42cdbe39de7a9259ceec631e21c7344b76177db9cc6c58b4 \
+    --hash=sha256:baa0f5f1f9a05032e7deb97051e85aa18b4e3c6db914f1c813bb2f02e5c72db4 \
+    --hash=sha256:caba27cd9a5f910aaadb54878f52ad91be1abbe3b3cfb955c999709c1a1798b0 \
+    --hash=sha256:cc1acee5720dbe077777fe540eee84ec4547286bbed3cba24d1c764d4b930317 \
+    --hash=sha256:cc8f35176be380fa241dfe9b8583a16db9c4b043fecb4b2932898e1699e5a0fb \
+    --hash=sha256:d9e00ee968781e06ab09f8c87f75586f04829988d66b4a0d6efbccfd03576b71 \
+    --hash=sha256:db0cdac6a8d8bd72f3dcb755ad4fcc904e0bd75a30091422fedbcfa9fc06b09a \
+    --hash=sha256:e1cef1eaf5a08cc3bf3675ca9d3f97f3fc7085998556c848b4053e74ba4ba392 \
+    --hash=sha256:f5bf66473514863aeede6cdefd887e6e22d74dbbac0933cd166ab4498935d04e \
+    --hash=sha256:f8ac692e0377c51d0bda32ae6782caafa007a5de171571ac844e616391c89a16
     # via torch
 cuda-pathfinder==1.8.1 \
     --hash=sha256:ae0137ff9e56ea97499bcbf54f5f2778ec25f3266715ac86da192a795af982a8
     # via cuda-bindings
+cuda-toolkit[cublas,cudart,cufft,cufile,cupti,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.2 \
+    --hash=sha256:d12edc1aad1356236a2ee10c0d794b1aff5d3e79bfeca54867c3bb8e5afd87b0 \
+    --hash=sha256:d12edc1aad1356236a2ee10c0d794b1aff5d3e79bfeca54867c3bb8e5afd87b0
+    # via torch
 cycler==0.12.1 \
     --hash=sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30 \
     --hash=sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c
@@ -639,7 +650,7 @@ fastapi==0.141.1 \
     --hash=sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3 \
     --hash=sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   mlflow-skinny
 filelock==3.32.6 \
     --hash=sha256:3f16ecd0117feae0dfc147e8c62eb5daeccd8bd800378c3ddf416de9b4feb6b1 \
@@ -658,7 +669,7 @@ flask-cors==6.0.5 \
 flatbuffers==25.12.19 \
     --hash=sha256:7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   onnxruntime
 fonttools==4.65.0 \
     --hash=sha256:04f73dd01005752a6e75cf4a8dc6b70dc724d1d4bc34cc89522153f4a2f07680 \
@@ -981,7 +992,7 @@ h11==0.16.0 \
     --hash=sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1 \
     --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   uvicorn
 huey==3.4.0 \
     --hash=sha256:ac9b02e741f13da4092ea19bcaafc73669e97d3153914d2fed2868df144f6dfa \
@@ -991,7 +1002,7 @@ idna==3.19 \
     --hash=sha256:5e0811a4383b21dc5838069f801c4fb62113b7447663d2530d2bd6e77b49bf15 \
     --hash=sha256:815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   anyio
     #   requests
     #   yarl
@@ -1364,7 +1375,7 @@ ml-dtypes==0.6.0 \
 mlflow==3.16.0 \
     --hash=sha256:c4ac5e8634aacad1a3d7d5a1a31be9279593ebd48b84272843682db11970cf71 \
     --hash=sha256:e39d3e4dd13aab864f821a3c3d871eb5e2db3d4557e60db8592f23cbafa1e830
-    # via -r requirements/training.in
+    # via -r training.in
 mlflow-skinny==3.16.0 \
     --hash=sha256:f02330c33f231fc19312bc35c64206e1504a63838fbabdac4b1882d6416bd2b8 \
     --hash=sha256:ff4e676eb469d769efc27036f9cb804e0709c125a2645a3902743d917b3771ae
@@ -1628,8 +1639,8 @@ numpy==2.5.3 \
     --hash=sha256:fc36dc566135b5eceec4cf89758fcb719266a019ef07dae1754ae7c9f617ef3e \
     --hash=sha256:ffdc76bfcae6b255dff75202c5e7feaf95b40246bc0a17944facc1fecf9f79ab
     # via
-    #   -c requirements/serving.txt
-    #   -r requirements/training.in
+    #   -c serving.txt
+    #   -r training.in
     #   contourpy
     #   matplotlib
     #   ml-dtypes
@@ -1642,87 +1653,135 @@ numpy==2.5.3 \
     #   scikit-learn
     #   scipy
     #   skops
-nvidia-cublas-cu12==12.8.4.1 \
-    --hash=sha256:47e9b82132fa8d2b4944e708049229601448aaad7e6f296f630f2d1a32de35af \
-    --hash=sha256:8ac4e771d5a348c551b2a426eda6193c19aa630236b418086020df5ba9667142 \
-    --hash=sha256:b86f6dd8935884615a0683b663891d43781b819ac4f2ba2b0c9604676af346d0
+nvidia-cublas==13.4.1.3 \
+    --hash=sha256:4eb1472bf92b741e7cf24da7978dde251b58ddec2092d9f6a04f3623eb4e9a15 \
+    --hash=sha256:4eb1472bf92b741e7cf24da7978dde251b58ddec2092d9f6a04f3623eb4e9a15 \
+    --hash=sha256:7e7f780caf07bde7b36b0d25bdad29e8ccbacfc4b75066907bdb601af1e6d4aa \
+    --hash=sha256:7e7f780caf07bde7b36b0d25bdad29e8ccbacfc4b75066907bdb601af1e6d4aa \
+    --hash=sha256:a5917cb642cfb07f4a0231ee16aec7e2e0357d8cb8b1b78a0c9c68dba3e6afc7 \
+    --hash=sha256:a5917cb642cfb07f4a0231ee16aec7e2e0357d8cb8b1b78a0c9c68dba3e6afc7
     # via
-    #   nvidia-cudnn-cu12
-    #   nvidia-cusolver-cu12
-    #   torch
-nvidia-cuda-cupti-cu12==12.8.90 \
-    --hash=sha256:4412396548808ddfed3f17a467b104ba7751e6b58678a4b840675c56d21cf7ed \
-    --hash=sha256:bb479dcdf7e6d4f8b0b01b115260399bf34154a1a2e9fe11c85c517d87efd98e \
-    --hash=sha256:ea0cb07ebda26bb9b29ba82cda34849e73c166c18162d3913575b0c9db9a6182
-    # via torch
-nvidia-cuda-nvrtc-cu12==12.8.93 \
-    --hash=sha256:7a4b6b2904850fe78e0bd179c4b655c404d4bb799ef03ddc60804247099ae909 \
-    --hash=sha256:a7756528852ef889772a84c6cd89d41dfa74667e24cca16bb31f8f061e3e9994 \
-    --hash=sha256:fc1fec1e1637854b4c0a65fb9a8346b51dd9ee69e61ebaccc82058441f15bce8
-    # via torch
-nvidia-cuda-runtime-cu12==12.8.90 \
-    --hash=sha256:52bf7bbee900262ffefe5e9d5a2a69a30d97e2bc5bb6cc866688caa976966e3d \
-    --hash=sha256:adade8dcbd0edf427b7204d480d6066d33902cab2a4707dcfc48a2d0fd44ab90 \
-    --hash=sha256:c0c6027f01505bfed6c3b21ec546f69c687689aad5f1a377554bc6ca4aa993a8
-    # via torch
-nvidia-cudnn-cu12==9.10.2.21 \
-    --hash=sha256:949452be657fa16687d0930933f032835951ef0892b37d2d53824d1a84dc97a8 \
-    --hash=sha256:c6288de7d63e6cf62988f0923f96dc339cea362decb1bf5b3141883392a7d65e \
-    --hash=sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8
-    # via torch
-nvidia-cufft-cu12==11.3.3.83 \
-    --hash=sha256:4d2dd21ec0b88cf61b62e6b43564355e5222e4a3fb394cac0db101f2dd0d4f74 \
-    --hash=sha256:7a64a98ef2a7c47f905aaf8931b69a3a43f27c55530c698bb2ed7c75c0b42cb7 \
-    --hash=sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a
-    # via torch
-nvidia-cufile-cu12==1.13.1.3 \
-    --hash=sha256:1d069003be650e131b21c932ec3d8969c1715379251f8d23a1860554b1cb24fc \
-    --hash=sha256:4beb6d4cce47c1a0f1013d72e02b0994730359e17801d395bdcbf20cfb3bb00a
-    # via torch
-nvidia-curand-cu12==10.3.9.90 \
-    --hash=sha256:b32331d4f4df5d6eefa0554c565b626c7216f87a06a4f56fab27c3b68a830ec9 \
-    --hash=sha256:dfab99248034673b779bc6decafdc3404a8a6f502462201f2f31f11354204acd \
-    --hash=sha256:f149a8ca457277da854f89cf282d6ef43176861926c7ac85b2a0fbd237c587ec
-    # via torch
-nvidia-cusolver-cu12==11.7.3.90 \
-    --hash=sha256:4376c11ad263152bd50ea295c05370360776f8c3427b30991df774f9fb26c450 \
-    --hash=sha256:4a550db115fcabc4d495eb7d39ac8b58d4ab5d8e63274d3754df1c0ad6a22d34 \
-    --hash=sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0
-    # via torch
-nvidia-cusparse-cu12==12.5.8.93 \
-    --hash=sha256:1ec05d76bbbd8b61b06a80e1eaf8cf4959c3d4ce8e711b65ebd0443bb0ebb13b \
-    --hash=sha256:9a33604331cb2cac199f2e7f5104dfbb8a5a898c367a53dfda9ff2acb6b6b4dd \
-    --hash=sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc
+    #   cuda-toolkit
+    #   nvidia-cudnn-cu13
+    #   nvidia-cusolver
+nvidia-cuda-cccl==13.3.4.3.1 \
+    --hash=sha256:48ba8e44a1162face51306d5bfd67604d9949be5acb9105dbb93734d2df8b3a4 \
+    --hash=sha256:48ba8e44a1162face51306d5bfd67604d9949be5acb9105dbb93734d2df8b3a4 \
+    --hash=sha256:ccb02901bb259997c4bc198ad6f96f9a4fa260d9823d8a5aceabf3e3b244336f \
+    --hash=sha256:ccb02901bb259997c4bc198ad6f96f9a4fa260d9823d8a5aceabf3e3b244336f \
+    --hash=sha256:cd47e7823e3ab369a3e3df3a4c6dbb4cb02176cb85b251eec5f7c9cdfa528ec4 \
+    --hash=sha256:cd47e7823e3ab369a3e3df3a4c6dbb4cb02176cb85b251eec5f7c9cdfa528ec4 \
+    --hash=sha256:d7879f58820f863c4db4237200a764d5cb992dbf99089d31aee6f2998750b002 \
+    --hash=sha256:d7879f58820f863c4db4237200a764d5cb992dbf99089d31aee6f2998750b002
+    # via nvidia-nvshmem-cu13
+nvidia-cuda-cupti==13.2.86 \
+    --hash=sha256:10837e2910753a7726c0243aa113e2bd65c0edee6f6f3e097db1757a8eac2c9e \
+    --hash=sha256:10837e2910753a7726c0243aa113e2bd65c0edee6f6f3e097db1757a8eac2c9e \
+    --hash=sha256:8fa29f15dd8336181f961764d9d95236fc6b931dd0c8fcf8cd70aab0c310b586 \
+    --hash=sha256:8fa29f15dd8336181f961764d9d95236fc6b931dd0c8fcf8cd70aab0c310b586 \
+    --hash=sha256:d9a5c133f73fcb9013f3ada0da6fb54d4117618d81f3f5a0419417ea6ee829d4 \
+    --hash=sha256:d9a5c133f73fcb9013f3ada0da6fb54d4117618d81f3f5a0419417ea6ee829d4
+    # via cuda-toolkit
+nvidia-cuda-nvrtc==13.2.86 \
+    --hash=sha256:1e5d7b411a2eb83f5c71c98d58133a763fc9fa86a4241ee320c5c4782d9ad1fd \
+    --hash=sha256:1e5d7b411a2eb83f5c71c98d58133a763fc9fa86a4241ee320c5c4782d9ad1fd \
+    --hash=sha256:8111c5130e967b78222ea2124145f8efe9ce201b752b2579a2513100a53be1c5 \
+    --hash=sha256:8111c5130e967b78222ea2124145f8efe9ce201b752b2579a2513100a53be1c5 \
+    --hash=sha256:bf070582c2d8b03f681cea8d34a9de900d808607deb813a826ecb3a585606f9a \
+    --hash=sha256:bf070582c2d8b03f681cea8d34a9de900d808607deb813a826ecb3a585606f9a
     # via
-    #   nvidia-cusolver-cu12
-    #   torch
-nvidia-cusparselt-cu12==0.7.1 \
-    --hash=sha256:8878dce784d0fac90131b6817b607e803c36e629ba34dc5b433471382196b6a5 \
-    --hash=sha256:f1bb701d6b930d5a7cea44c19ceb973311500847f81b634d802b7b539dc55623 \
-    --hash=sha256:f67fbb5831940ec829c9117b7f33807db9f9678dc2a617fbe781cac17b4e1075
+    #   cuda-toolkit
+    #   nvidia-cublas
+nvidia-cuda-runtime==13.2.86 \
+    --hash=sha256:3498247680dfddce31bad102af7e3e26fc795342a3cac64722bb0fa95e7f60f0 \
+    --hash=sha256:3498247680dfddce31bad102af7e3e26fc795342a3cac64722bb0fa95e7f60f0 \
+    --hash=sha256:37844957894bfdecf90243568d21a2cb251b66106915b71459a23c8e6ef2da69 \
+    --hash=sha256:37844957894bfdecf90243568d21a2cb251b66106915b71459a23c8e6ef2da69 \
+    --hash=sha256:b26f5dd86e67f0eb404ae679185e1c49fe546fa9a47b32dee31312f65ccfe764 \
+    --hash=sha256:b26f5dd86e67f0eb404ae679185e1c49fe546fa9a47b32dee31312f65ccfe764
+    # via cuda-toolkit
+nvidia-cudnn-cu13==9.26.0.51 \
+    --hash=sha256:8e37a83d7dd7c2663afcae38b1c95c5e9e7c9754f313800da95ca81439fa37f9 \
+    --hash=sha256:8e37a83d7dd7c2663afcae38b1c95c5e9e7c9754f313800da95ca81439fa37f9 \
+    --hash=sha256:8e5b4f5eccff721416f70ecf4353172fc4d5cdd8ca869fe6f983a4a5b0147b20 \
+    --hash=sha256:8e5b4f5eccff721416f70ecf4353172fc4d5cdd8ca869fe6f983a4a5b0147b20 \
+    --hash=sha256:9c976d539786698c71d6bcdbe2053b7485fae062ff7e1215d2f2ff67b1a2149a \
+    --hash=sha256:9c976d539786698c71d6bcdbe2053b7485fae062ff7e1215d2f2ff67b1a2149a
     # via torch
-nvidia-nccl-cu12==2.27.5 \
-    --hash=sha256:31432ad4d1fb1004eb0c56203dc9bc2178a1ba69d1d9e02d64a6938ab5e40e7a \
-    --hash=sha256:ad730cf15cb5d25fe849c6e6ca9eb5b76db16a80f13f425ac68d8e2e55624457
-    # via torch
-nvidia-nvjitlink-cu12==12.8.93 \
-    --hash=sha256:81ff63371a7ebd6e6451970684f916be2eab07321b73c9d244dc2b4da7f73b88 \
-    --hash=sha256:adccd7161ace7261e01bb91e44e88da350895c270d23f744f0820c818b7229e7 \
-    --hash=sha256:bd93fbeeee850917903583587f4fc3a4eafa022e34572251368238ab5e6bd67f
+nvidia-cufft==12.2.0.57 \
+    --hash=sha256:1ed438568ae1088ba2c25789d10205d4104b8b140b7bd942e39a787947a0fb74 \
+    --hash=sha256:1ed438568ae1088ba2c25789d10205d4104b8b140b7bd942e39a787947a0fb74 \
+    --hash=sha256:34da27fadf3979b0b042c43823f0530be8408b86df31ee0108e1ca0b621d4ef6 \
+    --hash=sha256:34da27fadf3979b0b042c43823f0530be8408b86df31ee0108e1ca0b621d4ef6 \
+    --hash=sha256:89b78b2b60d6ca1fb7dab7d1a4af135d69d586d18a216ca84e51db5901cd41d0 \
+    --hash=sha256:89b78b2b60d6ca1fb7dab7d1a4af135d69d586d18a216ca84e51db5901cd41d0
+    # via cuda-toolkit
+nvidia-cufile==1.17.1.22 \
+    --hash=sha256:87feaf8c3ad20d3d03a01933181801ff6892bace5c8f0b1e4b48f319d3e62d36 \
+    --hash=sha256:87feaf8c3ad20d3d03a01933181801ff6892bace5c8f0b1e4b48f319d3e62d36 \
+    --hash=sha256:bec33d7f1f12691dce330275246587569c2ed90b1ce43b0f94b3e1ce9268744b \
+    --hash=sha256:bec33d7f1f12691dce330275246587569c2ed90b1ce43b0f94b3e1ce9268744b
+    # via cuda-toolkit
+nvidia-cusolver==12.2.0.11 \
+    --hash=sha256:364511c9974ef1fcde2ca197caebfe0994ece2cb33bc27117eeb88b8cee5c46d \
+    --hash=sha256:364511c9974ef1fcde2ca197caebfe0994ece2cb33bc27117eeb88b8cee5c46d \
+    --hash=sha256:8be097fca28de6be0990ab216ee9b804dd51077e1d1d83acf6c9850650bdc64d \
+    --hash=sha256:8be097fca28de6be0990ab216ee9b804dd51077e1d1d83acf6c9850650bdc64d \
+    --hash=sha256:fab5778f6769947389a1a6abc07e635576825a08c0ffc68c3ae7f1392c794b42 \
+    --hash=sha256:fab5778f6769947389a1a6abc07e635576825a08c0ffc68c3ae7f1392c794b42
+    # via cuda-toolkit
+nvidia-cusparse==12.7.10.12 \
+    --hash=sha256:25907c75e4db1581685f06f61cc6cdecc04611765516a52373e0a18ebd69fa00 \
+    --hash=sha256:25907c75e4db1581685f06f61cc6cdecc04611765516a52373e0a18ebd69fa00 \
+    --hash=sha256:597eff2cd83e3ab1d1e3a0dce9c9c879d77cf64ec2659bfdb5af6a5d02e7aaa9 \
+    --hash=sha256:597eff2cd83e3ab1d1e3a0dce9c9c879d77cf64ec2659bfdb5af6a5d02e7aaa9 \
+    --hash=sha256:6b1e82056a0865c5b4f5da6adbebb15244e9a2b8aeea0838a9cf725e16523c53 \
+    --hash=sha256:6b1e82056a0865c5b4f5da6adbebb15244e9a2b8aeea0838a9cf725e16523c53
     # via
-    #   nvidia-cufft-cu12
-    #   nvidia-cusolver-cu12
-    #   nvidia-cusparse-cu12
-    #   torch
-nvidia-nvshmem-cu12==3.4.5 \
-    --hash=sha256:042f2500f24c021db8a06c5eec2539027d57460e1c1a762055a6554f72c369bd \
-    --hash=sha256:0b48363fc6964dede448029434c6abed6c5e37f823cb43c3bcde7ecfc0457e15
+    #   cuda-toolkit
+    #   nvidia-cusolver
+nvidia-cusparselt-cu13==0.8.1 \
+    --hash=sha256:4dca476c50bf4780d46cd0bfbd82e2bc10a08e4fef7950917ce8d7578d22a23f \
+    --hash=sha256:4dca476c50bf4780d46cd0bfbd82e2bc10a08e4fef7950917ce8d7578d22a23f \
+    --hash=sha256:786ce87568c303fadb5afcc7102d454cd3040d75f6f8626f5db460d1871f4dd0 \
+    --hash=sha256:786ce87568c303fadb5afcc7102d454cd3040d75f6f8626f5db460d1871f4dd0 \
+    --hash=sha256:dccbd362f91a7b9024d1f55ee9f548ac065027ff15d8c8b0db889ab3a8f31215 \
+    --hash=sha256:dccbd362f91a7b9024d1f55ee9f548ac065027ff15d8c8b0db889ab3a8f31215
     # via torch
-nvidia-nvtx-cu12==12.8.90 \
-    --hash=sha256:5b17e2001cc0d751a5bc2c6ec6d26ad95913324a4adb86788c944f8ce9ba441f \
-    --hash=sha256:619c8304aedc69f02ea82dd244541a83c3d9d40993381b3b590f1adaed3db41e \
-    --hash=sha256:d7ad891da111ebafbf7e015d34879f7112832fc239ff0d7d776b6cb685274615
+nvidia-nccl-cu13==2.30.7 \
+    --hash=sha256:ca786ffa5a647c75d4d1f5cc72a6c4f537947e2ba8823d7c8aaf768e7a7b9f77 \
+    --hash=sha256:ca786ffa5a647c75d4d1f5cc72a6c4f537947e2ba8823d7c8aaf768e7a7b9f77 \
+    --hash=sha256:cefa7fdb9710efd0f39c5f1be1d61ff6fc9a996c451265bd7fbdcf9455ed4b50 \
+    --hash=sha256:cefa7fdb9710efd0f39c5f1be1d61ff6fc9a996c451265bd7fbdcf9455ed4b50
     # via torch
+nvidia-nvjitlink==13.4.92 \
+    --hash=sha256:25f74fad0d654271c921ac4dca614bd6258bc21791242fc7b2289dad7ae9c099 \
+    --hash=sha256:25f74fad0d654271c921ac4dca614bd6258bc21791242fc7b2289dad7ae9c099 \
+    --hash=sha256:9e4a7ff4f0cafa8c624917055b863dc11f5c2912ead23c462889e166f3b0e57d \
+    --hash=sha256:9e4a7ff4f0cafa8c624917055b863dc11f5c2912ead23c462889e166f3b0e57d \
+    --hash=sha256:b286f3a4f227a9363efdec263c7b91788cef1478d2b8a5fa8bab7f3e82ff82fd \
+    --hash=sha256:b286f3a4f227a9363efdec263c7b91788cef1478d2b8a5fa8bab7f3e82ff82fd \
+    --hash=sha256:e0391f24ed94ec879b84e3da4d4ec320c879aff681f2c7a638462f7199284323 \
+    --hash=sha256:e0391f24ed94ec879b84e3da4d4ec320c879aff681f2c7a638462f7199284323
+    # via
+    #   cuda-toolkit
+    #   nvidia-cufft
+    #   nvidia-cusolver
+    #   nvidia-cusparse
+nvidia-nvshmem-cu13==3.7.2 \
+    --hash=sha256:0e748308b9e0a8a8d81859353f3e6c98fbe85a85f652a915a2ba60149a0bd124 \
+    --hash=sha256:0e748308b9e0a8a8d81859353f3e6c98fbe85a85f652a915a2ba60149a0bd124 \
+    --hash=sha256:b9a4f843c62b5dded8ad33fd6d220e007dcd39f06cee549292f5ba14ce4c235c \
+    --hash=sha256:b9a4f843c62b5dded8ad33fd6d220e007dcd39f06cee549292f5ba14ce4c235c
+    # via torch
+nvidia-nvtx==13.2.86 \
+    --hash=sha256:1c6ae1be92fba569dd271f7b9b3056f99f5642726dc6c53d1b93ae4110c398fb \
+    --hash=sha256:1c6ae1be92fba569dd271f7b9b3056f99f5642726dc6c53d1b93ae4110c398fb \
+    --hash=sha256:7f3f430a87bb1e2db3371832d21a5c1efcf77bef7cacfd772fd71649e121cd58 \
+    --hash=sha256:7f3f430a87bb1e2db3371832d21a5c1efcf77bef7cacfd772fd71649e121cd58 \
+    --hash=sha256:968ce72baee2a01791c7d3254000eac81f24677b0b91c62d21b449a1f309c245 \
+    --hash=sha256:968ce72baee2a01791c7d3254000eac81f24677b0b91c62d21b449a1f309c245
+    # via cuda-toolkit
 onnx==1.20.0 \
     --hash=sha256:00dc8ae2c7b283f79623961f450b5515bd2c4b47a7027e7a1374ba49cef27768 \
     --hash=sha256:02e0d72ab09a983fce46686b155a5049898558d9f3bc6e8515120d6c40666318 \
@@ -1748,7 +1807,7 @@ onnx==1.20.0 \
     --hash=sha256:f62978ecfb8f320faba6704abd20253a5a79aacc4e5d39a9c061dd63d3b7574f \
     --hash=sha256:f8424c95491de38ecc280f7d467b298cb0b7cdeb1cd892eb9b4b9541c00a600e
     # via
-    #   -r requirements/training.in
+    #   -r training.in
     #   onnx-ir
     #   onnxscript
 onnx-ir==1.0.0 \
@@ -1781,12 +1840,12 @@ onnxruntime==1.30.0 \
     --hash=sha256:fa688e7891a6aa206636fe7372e27ee75fd17713289f6b4fc7b190e0a7de9328 \
     --hash=sha256:fd54b314ea385bcecac69ab431f020ba503e3878dad4ebb645fec5a24b041242
     # via
-    #   -c requirements/serving.txt
-    #   -r requirements/training.in
+    #   -c serving.txt
+    #   -r training.in
 onnxscript==0.7.2 \
     --hash=sha256:2c664f6383d10f332a4d47b2876dcab16dba84909fe703656b19abc281fda165 \
     --hash=sha256:d0e7121c6a1eefd608058928e111cbdb76709f70d269ff0d07aee493bd1d13c9
-    # via -r requirements/training.in
+    # via -r training.in
 opentelemetry-api==1.44.0 \
     --hash=sha256:67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a \
     --hash=sha256:94b98c893a91b88657eaac1e3ba89618cdb85be6918196705354f34728b2cdef
@@ -1815,7 +1874,7 @@ packaging==26.3 \
     --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
     --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   matplotlib
     #   mlflow-skinny
     #   mlflow-tracing
@@ -1866,7 +1925,7 @@ pandas==3.0.5 \
     --hash=sha256:ef01af4d8dc6cd2c8d6c7736f149574ef93fe043811eeb5e445f2647154b5040 \
     --hash=sha256:fa290c16964d4963fbfbc358928239cf3bd755b20e988ce944877def2f44471d
     # via
-    #   -r requirements/training.in
+    #   -r training.in
     #   mlflow
 pillow==12.3.0 \
     --hash=sha256:00808c5e14ef63ac5161091d242999076604ff74b883423a11e5d7bbb38bf756 \
@@ -1965,8 +2024,8 @@ prometheus-client==0.26.0 \
     --hash=sha256:04a91bcf94e2cf74a44a1a874d651a2e853ed354b6e822f3b7487751465d5c2b \
     --hash=sha256:fa93d06737aa02bacd05794768508bb97d2fbee28cb3bca04eaae92f0ca953d6
     # via
-    #   -c requirements/serving.txt
-    #   -r requirements/training.in
+    #   -c serving.txt
+    #   -r training.in
 propcache==0.5.2 \
     --hash=sha256:01c4fc7480cd0598bb4b57022df55b9ca296da7fc5a8760bd8451a7e63a7d427 \
     --hash=sha256:04dc2390d9edbbaef7461f33322555976ffddf0b650a038649d026358714e6c5 \
@@ -2102,7 +2161,7 @@ protobuf==7.36.1 \
     --hash=sha256:97198b77e369a0abd8e262b8f6c7266c55ddb796a3a12c76d7b8881188ed83aa \
     --hash=sha256:d0f6470f0ce2b84e3feaea2d4b816378b37ba4d4aa08a274305373de93e2d524
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   mlflow-skinny
     #   mlflow-tracing
     #   onnx
@@ -2176,7 +2235,7 @@ psycopg2-binary==2.9.12 \
     --hash=sha256:f921f3cd87035ef7df233383011d7a53ea1d346224752c1385f1edfd790ceb6a \
     --hash=sha256:fb1828cf3da68f99e45ebce1355d65d2d12b6a78fb5dfb16247aad6bdef5f5d2 \
     --hash=sha256:ffdd7dc5463ccd61845ac37b7012d0f35a1548df9febe14f8dd549be4a0bc81e
-    # via -r requirements/training.in
+    # via -r training.in
 pyarrow==22.0.0 \
     --hash=sha256:001ea83a58024818826a9e3f89bf9310a114f7e26dfe404a4c32686f97bd7901 \
     --hash=sha256:00626d9dc0f5ef3a75fe63fd68b9c7c8302d2b5bbc7f74ecaedba83447a24f84 \
@@ -2229,7 +2288,7 @@ pyarrow==22.0.0 \
     --hash=sha256:f7fe3dbe871294ba70d789be16b6e7e52b418311e166e0e3cba9522f0f437fb1 \
     --hash=sha256:f963ba8c3b0199f9d6b794c90ec77545e05eadc83973897a4523c9e8d84e9340
     # via
-    #   -r requirements/training.in
+    #   -r training.in
     #   mlflow
 pyasn1==0.6.4 \
     --hash=sha256:9c447d8431c947fe4c8febc4ed9e760bc29011a5b01e5c74b67025bd9fb8ce81 \
@@ -2247,7 +2306,7 @@ pydantic==2.13.5 \
     --hash=sha256:346a034f080da3755d8e9cb5e00e8b07de1d39e4f6e2c87d8ab7cafa0b269a73 \
     --hash=sha256:51a9c5f7b2f8e636f04c6cada605d9b6a3bf1348fdf945a3d8869b19bba0ee08
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   fastapi
     #   mlflow-skinny
     #   mlflow-tracing
@@ -2373,7 +2432,7 @@ pydantic-core==2.46.5 \
     --hash=sha256:fc8515076c11f3cfdf4fb142dcca0fe384b1230a3b5415458ac84f3e0903ec13 \
     --hash=sha256:ff218293c9c806138dca139765e3b067621be52bcd93cdc14c7711be7ddc90a9
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   pydantic
 pyparsing==3.3.2 \
     --hash=sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d \
@@ -2391,7 +2450,7 @@ python-dotenv==1.2.3 \
     --hash=sha256:904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9 \
     --hash=sha256:a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   mlflow-skinny
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \
@@ -2468,8 +2527,8 @@ pyyaml==6.0.3 \
     --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
     --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
     # via
-    #   -c requirements/serving.txt
-    #   -r requirements/training.in
+    #   -c serving.txt
+    #   -r training.in
     #   mlflow-skinny
 requests==2.34.2 \
     --hash=sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0 \
@@ -2595,10 +2654,6 @@ scipy==1.18.1 \
     #   mlflow
     #   scikit-learn
     #   skops
-setuptools==84.0.0 \
-    --hash=sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670 \
-    --hash=sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73
-    # via torch
 six==1.17.0 \
     --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274 \
     --hash=sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81
@@ -2675,7 +2730,7 @@ starlette==1.6.0 \
     --hash=sha256:a86dd39d14bb45f85a3d18525215a9ef0cfd1f192ac793220e72598c90335f0c \
     --hash=sha256:d4e3ac5e546444960c710297a3c9fc3f7ebae1b7e963f3d36173b49da535be9b
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   fastapi
     #   mlflow-skinny
 sympy==1.14.0 \
@@ -2688,70 +2743,87 @@ threadpoolctl==3.6.0 \
     --hash=sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb \
     --hash=sha256:8ab8b4aa3491d812b623328249fab5302a68d2d71745c8a4c719a2fcaba9f44e
     # via scikit-learn
-torch==2.10.0 \
-    --hash=sha256:0228d20b06701c05a8f978357f657817a4a63984b0c90745def81c18aedfa591 \
-    --hash=sha256:13ec4add8c3faaed8d13e0574f5cd4a323c11655546f91fbe6afa77b57423574 \
-    --hash=sha256:233aed0659a2503b831d8a67e9da66a62c996204c0bba4f4c442ccc0c68a3f60 \
-    --hash=sha256:29b7009dba4b7a1c960260fc8ac85022c784250af43af9fb0ebafc9883782ebd \
-    --hash=sha256:2b980edd8d7c0a68c4e951ee1856334a43193f98730d97408fbd148c1a933313 \
-    --hash=sha256:2c66c61f44c5f903046cc696d088e21062644cbe541c7f1c4eaae88b2ad23547 \
-    --hash=sha256:3202429f58309b9fa96a614885eace4b7995729f44beb54d3e4a47773649d382 \
-    --hash=sha256:3282d9febd1e4e476630a099692b44fdc214ee9bf8ee5377732d9d9dfe5712e4 \
-    --hash=sha256:35e407430795c8d3edb07a1d711c41cc1f9eaddc8b2f1cc0a165a6767a8fb73d \
-    --hash=sha256:418997cb02d0a0f1497cf6a09f63166f9f5df9f3e16c8a716ab76a72127c714f \
-    --hash=sha256:46b3574d93a2a8134b3f5475cfb98e2eb46771794c57015f6ad1fb795ec25e49 \
-    --hash=sha256:5276fa790a666ee8becaffff8acb711922252521b28fbce5db7db5cf9cb2026d \
-    --hash=sha256:5c4d217b14741e40776dd7074d9006fd28b8a97ef5654db959d8635b2fe5f29b \
-    --hash=sha256:5fd4117d89ffd47e3dcc71e71a22efac24828ad781c7e46aaaf56bf7f2796acf \
-    --hash=sha256:6021db85958db2f07ec94e1bc77212721ba4920c12a18dc552d2ae36a3eb163f \
-    --hash=sha256:6528f13d2a8593a1a412ea07a99812495bec07e9224c28b2a25c0a30c7da025c \
-    --hash=sha256:682497e16bdfa6efeec8cde66531bc8d1fbbbb4d8788ec6173c089ed3cc2bfe5 \
-    --hash=sha256:6b71486353fce0f9714ca0c9ef1c850a2ae766b409808acd58e9678a3edb7738 \
-    --hash=sha256:6d3707a61863d1c4d6ebba7be4ca320f42b869ee657e9b2c21c736bf17000294 \
-    --hash=sha256:71283a373f0ee2c89e0f0d5f446039bdabe8dbc3c9ccf35f0f784908b0acd185 \
-    --hash=sha256:716b01a176c2a5659c98f6b01bf868244abdd896526f1c692712ab36dbaf9b63 \
-    --hash=sha256:787124e7db3b379d4f1ed54dd12ae7c741c16a4d29b49c0226a89bea50923ffb \
-    --hash=sha256:80b1b5bfe38eb0e9f5ff09f206dcac0a87aadd084230d4a36eea5ec5232c115b \
-    --hash=sha256:98c01b8bb5e3240426dcde1446eed6f40c778091c8544767ef1168fc663a05a6 \
-    --hash=sha256:a1ff626b884f8c4e897c4c33782bdacdff842a165fee79817b1dd549fdda1321 \
-    --hash=sha256:a2f9edd8dbc99f62bc4dfb78af7bf89499bca3d753423ac1b4e06592e467b763 \
-    --hash=sha256:a4be6a2a190b32ff5c8002a0977a25ea60e64f7ba46b1be37093c141d9c49aeb \
-    --hash=sha256:aae1b29cd68e50a9397f5ee897b9c24742e9e306f88a807a27d617f07adb3bd8 \
-    --hash=sha256:aaf663927bcd490ae971469a624c322202a2a1e68936eb952535ca4cd3b90444 \
-    --hash=sha256:ac5bdcbb074384c66fa160c15b1ead77839e3fe7ed117d667249afce0acabfac \
-    --hash=sha256:b1d5e2aba4eb7f8e87fbe04f86442887f9167a35f092afe4c237dfcaaef6e328 \
-    --hash=sha256:b7bd80f3477b830dd166c707c5b0b82a898e7b16f59a7d9d42778dd058272e8b \
-    --hash=sha256:bf0d9ff448b0218e0433aeb198805192346c4fd659c852370d5cc245f602a06a \
-    --hash=sha256:c2ee399c644dc92ef7bc0d4f7e74b5360c37cdbe7c5ba11318dda49ffac2bc57 \
-    --hash=sha256:cdf2a523d699b70d613243211ecaac14fe9c5df8a0b0a9c02add60fb2a413e0f \
-    --hash=sha256:d8f5912ba938233f86361e891789595ff35ca4b4e2ac8fe3670895e5976731d6 \
-    --hash=sha256:e521c9f030a3774ed770a9c011751fb47c4d12029a3d6522116e48431f2ff89e \
-    --hash=sha256:f5ab4ba32383061be0fb74bda772d470140a12c1c3b58a0cfbf3dae94d164c28 \
-    --hash=sha256:ff43db38af76fda183156153983c9a096fc4c78d0cd1e07b14a2314c7f01c2c8
-    # via -r requirements/training.in
-triton==3.6.0 \
-    --hash=sha256:0b3a97e8ed304dfa9bd23bb41ca04cdf6b2e617d5e782a8653d616037a5d537d \
-    --hash=sha256:10c7f76c6e72d2ef08df639e3d0d30729112f47a56b0c81672edc05ee5116ac9 \
-    --hash=sha256:1722e172d34e32abc3eb7711d0025bb69d7959ebea84e3b7f7a341cd7ed694d6 \
-    --hash=sha256:374f52c11a711fd062b4bfbb201fd9ac0a5febd28a96fb41b4a0f51dde3157f4 \
-    --hash=sha256:448e02fe6dc898e9e5aa89cf0ee5c371e99df5aa5e8ad976a80b93334f3494fd \
-    --hash=sha256:46bd1c1af4b6704e554cad2eeb3b0a6513a980d470ccfa63189737340c7746a7 \
-    --hash=sha256:49df5ef37379c0c2b5c0012286f80174fcf0e073e5ade1ca9a86c36814553651 \
-    --hash=sha256:6c723cfb12f6842a0ae94ac307dba7e7a44741d720a40cf0e270ed4a4e3be781 \
-    --hash=sha256:74caf5e34b66d9f3a429af689c1c7128daba1d8208df60e81106b115c00d6fca \
-    --hash=sha256:a17a5d5985f0ac494ed8a8e54568f092f7057ef60e1b0fa09d3fd1512064e803 \
-    --hash=sha256:a6550fae429e0667e397e5de64b332d1e5695b73650ee75a6146e2e902770bea \
-    --hash=sha256:d002e07d7180fd65e622134fbd980c9a3d4211fb85224b56a0a0efbd422ab72f \
-    --hash=sha256:e8e323d608e3a9bfcc2d9efcc90ceefb764a82b99dea12a86d643c72539ad5d3 \
-    --hash=sha256:ef5523241e7d1abca00f1d240949eebdd7c673b005edbbce0aca95b8191f1d43
+torch==2.15.0 \
+    --hash=sha256:02ac0b22211c1984e5dc002d2e57fdbc13d32116537ea6ae1a0c9d07cafce0c9 \
+    --hash=sha256:02ac0b22211c1984e5dc002d2e57fdbc13d32116537ea6ae1a0c9d07cafce0c9 \
+    --hash=sha256:04597a77bbcc7a1a01e7b9efce78d258b18a7f31bcb190f4ee00360bff75e7f6 \
+    --hash=sha256:04597a77bbcc7a1a01e7b9efce78d258b18a7f31bcb190f4ee00360bff75e7f6 \
+    --hash=sha256:06a686eb717cd3d1662363082820be45497318887c596d691af0af0c7649c8f0 \
+    --hash=sha256:06a686eb717cd3d1662363082820be45497318887c596d691af0af0c7649c8f0 \
+    --hash=sha256:0d2b2d9674fa0b9b3f50e83231aa6545a0b19e437a52f0af939a224faaa45515 \
+    --hash=sha256:0d2b2d9674fa0b9b3f50e83231aa6545a0b19e437a52f0af939a224faaa45515 \
+    --hash=sha256:1412c79b0338ea61fa31e74a59d74e412c56307e226d3c6e61ccd6d4613ffc3f \
+    --hash=sha256:1412c79b0338ea61fa31e74a59d74e412c56307e226d3c6e61ccd6d4613ffc3f \
+    --hash=sha256:2167ed5782ab62f41fb766b822ebea638c2ffcb72e8c3abdd3efc429bbe60a19 \
+    --hash=sha256:2167ed5782ab62f41fb766b822ebea638c2ffcb72e8c3abdd3efc429bbe60a19 \
+    --hash=sha256:241fea2bac4ed8351307cd13eca5020fbe231f990891be299cf683897caebfbc \
+    --hash=sha256:241fea2bac4ed8351307cd13eca5020fbe231f990891be299cf683897caebfbc \
+    --hash=sha256:48c2d861134c0b5697c7602cb5ffa68f62a2989fdcd1717e593356f67996ca1e \
+    --hash=sha256:48c2d861134c0b5697c7602cb5ffa68f62a2989fdcd1717e593356f67996ca1e \
+    --hash=sha256:4a906d0fa6dc9aa9a9b5f3b96437c8dfe661f855645b3f838c12fc5cf5cce562 \
+    --hash=sha256:4a906d0fa6dc9aa9a9b5f3b96437c8dfe661f855645b3f838c12fc5cf5cce562 \
+    --hash=sha256:58ce2ebfb3430941353109a85be63ee8e941da22f13daa2c43344eeb51c81e06 \
+    --hash=sha256:58ce2ebfb3430941353109a85be63ee8e941da22f13daa2c43344eeb51c81e06 \
+    --hash=sha256:593e5fd0c204284890d1c3dff643be34e549e1d24523e13402510f960d4da438 \
+    --hash=sha256:593e5fd0c204284890d1c3dff643be34e549e1d24523e13402510f960d4da438 \
+    --hash=sha256:59c3a521000ab76a11785276b3d56752e03ca2751658798a94c8f1032f93cf41 \
+    --hash=sha256:59c3a521000ab76a11785276b3d56752e03ca2751658798a94c8f1032f93cf41 \
+    --hash=sha256:628f54cb55a2363a5f14471a80c1b6efb63724449d2611ad2772fb5d4c42d19d \
+    --hash=sha256:628f54cb55a2363a5f14471a80c1b6efb63724449d2611ad2772fb5d4c42d19d \
+    --hash=sha256:6d8c86f4e33a9f12a58149bd9b0d64351632b8eb44479be8ff85e5389932dd79 \
+    --hash=sha256:6d8c86f4e33a9f12a58149bd9b0d64351632b8eb44479be8ff85e5389932dd79 \
+    --hash=sha256:9024cbf347dce95759bcde1411ef59b7cdb9ef0a846f4f24f356a17f8cf16f7d \
+    --hash=sha256:9024cbf347dce95759bcde1411ef59b7cdb9ef0a846f4f24f356a17f8cf16f7d \
+    --hash=sha256:9e51cf9460c5441dcd2a4f31ece207e35ea7c3d2535be0f929cca4944e2eeb18 \
+    --hash=sha256:9e51cf9460c5441dcd2a4f31ece207e35ea7c3d2535be0f929cca4944e2eeb18 \
+    --hash=sha256:a46cf67c6b574311ecdc24364a5c3a694c60dd3619043f594cfebb8f0b283ea4 \
+    --hash=sha256:a46cf67c6b574311ecdc24364a5c3a694c60dd3619043f594cfebb8f0b283ea4 \
+    --hash=sha256:c521a00891e92aba2f34717671c268acd0bde26444623efcceaeaf51c87b3b36 \
+    --hash=sha256:c521a00891e92aba2f34717671c268acd0bde26444623efcceaeaf51c87b3b36 \
+    --hash=sha256:cf02d11e13819807389e172ecb8f400f6135969af860e2a9f677f67a011e6194 \
+    --hash=sha256:cf02d11e13819807389e172ecb8f400f6135969af860e2a9f677f67a011e6194 \
+    --hash=sha256:d0862b725d86a2795ff331f519fd332451ff75f2e7cff561673d61c44cef7155 \
+    --hash=sha256:d0862b725d86a2795ff331f519fd332451ff75f2e7cff561673d61c44cef7155 \
+    --hash=sha256:d2c5938f593a47cf6d151a16d130a3cc3f0c105df1b905a571efc00b01e38c1f \
+    --hash=sha256:d2c5938f593a47cf6d151a16d130a3cc3f0c105df1b905a571efc00b01e38c1f \
+    --hash=sha256:e079089d36401261ebe145504309d0114fb9a00529eac4b33048221d2376a15c \
+    --hash=sha256:e079089d36401261ebe145504309d0114fb9a00529eac4b33048221d2376a15c \
+    --hash=sha256:e808b63d616a43b326e1a5677d45a2e5babe7a8ce27edb03ddb48e7dd9b6d663 \
+    --hash=sha256:e808b63d616a43b326e1a5677d45a2e5babe7a8ce27edb03ddb48e7dd9b6d663 \
+    --hash=sha256:eba5772cdce0f92a81d0f5c577ac571a4ee35e052ba7533c2d6dd860f0c5659f \
+    --hash=sha256:eba5772cdce0f92a81d0f5c577ac571a4ee35e052ba7533c2d6dd860f0c5659f \
+    --hash=sha256:ed708117f2f0162dbbd958dbd2654c16c99ad4c8ac14ccc4617dc76f029b8a8d \
+    --hash=sha256:ed708117f2f0162dbbd958dbd2654c16c99ad4c8ac14ccc4617dc76f029b8a8d \
+    --hash=sha256:f2bd0a3709a7493a6ef2ac5a654111242a854439f7558f910b6b653b56f7504d \
+    --hash=sha256:f2bd0a3709a7493a6ef2ac5a654111242a854439f7558f910b6b653b56f7504d \
+    --hash=sha256:fbefd73b521d3c75c5a1d7c77056b2c6339b81468d14d4e33c55f525418a5855 \
+    --hash=sha256:fbefd73b521d3c75c5a1d7c77056b2c6339b81468d14d4e33c55f525418a5855 \
+    --hash=sha256:fbf74b432a5c1cac0824af3d482ecc64a0a8187a3d58cc6733efe349697daac4 \
+    --hash=sha256:fbf74b432a5c1cac0824af3d482ecc64a0a8187a3d58cc6733efe349697daac4
+    # via -r training.in
+triton==3.9.0 \
+    --hash=sha256:1622118a038b0c6e16fa4a0305da62c8b3c15904ee1cc4d4e65846a25969e41e \
+    --hash=sha256:1622118a038b0c6e16fa4a0305da62c8b3c15904ee1cc4d4e65846a25969e41e \
+    --hash=sha256:5542f4328472fd827dbb1ec43873364c2894682cc3f5d1c74a643762900e243e \
+    --hash=sha256:5542f4328472fd827dbb1ec43873364c2894682cc3f5d1c74a643762900e243e \
+    --hash=sha256:5e52ab4e2f1d64f0ac494c9aa723697b793f81a91c4cae4c36608ca0bc4267bf \
+    --hash=sha256:5e52ab4e2f1d64f0ac494c9aa723697b793f81a91c4cae4c36608ca0bc4267bf \
+    --hash=sha256:8d0b97b333d919e86d06a6b3c8656c27eecaf14f74c1eb64d210234603268ba2 \
+    --hash=sha256:8d0b97b333d919e86d06a6b3c8656c27eecaf14f74c1eb64d210234603268ba2 \
+    --hash=sha256:990d43d967bbcc90f973fc17ad9cd7352e67940f41b31d94afd53b9867a3c1a1 \
+    --hash=sha256:990d43d967bbcc90f973fc17ad9cd7352e67940f41b31d94afd53b9867a3c1a1 \
+    --hash=sha256:bac2ed42a2b7aa232aeec57c2f7b0d88b61a74a29b3bf358f4cec6b20be356f6 \
+    --hash=sha256:bac2ed42a2b7aa232aeec57c2f7b0d88b61a74a29b3bf358f4cec6b20be356f6 \
+    --hash=sha256:eab30be40d412e947f3b74b20f50e4f8e07dd11439e7ddc6bd6184cabda2be79 \
+    --hash=sha256:eab30be40d412e947f3b74b20f50e4f8e07dd11439e7ddc6bd6184cabda2be79 \
+    --hash=sha256:feaaec13578ca84301d561d034cb08b3ae293d7f0b7ab6b8ddbb2d6796363716 \
+    --hash=sha256:feaaec13578ca84301d561d034cb08b3ae293d7f0b7ab6b8ddbb2d6796363716
     # via torch
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
     --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
     # via
-    #   -c requirements/serving.txt
-    #   aiohttp
-    #   aiosignal
+    #   -c serving.txt
     #   alembic
     #   anyio
     #   fastapi
@@ -2766,14 +2838,13 @@ typing-extensions==4.16.0 \
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
-    #   starlette
     #   torch
     #   typing-inspection
 typing-inspection==0.4.4 \
     --hash=sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47 \
     --hash=sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   fastapi
     #   pydantic
 urllib3==2.7.0 \
@@ -2787,7 +2858,7 @@ uvicorn==0.52.4 \
     --hash=sha256:73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86 \
     --hash=sha256:f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1
     # via
-    #   -c requirements/serving.txt
+    #   -c serving.txt
     #   mlflow-skinny
 wcwidth==0.8.3 \
     --hash=sha256:d128512515fbf4612e0ff21fd6380399210318b7b54a9af59dff8454cf9730eb \
